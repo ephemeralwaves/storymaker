@@ -19,17 +19,17 @@ export const BUILTIN_PLUGINS: PromptPlugin[] = [
   },
   {
     id: "warm",
-    name: "Warm the paragraph",
-    blurb: "A gentler pass over the current scene, offered as a suggestion.",
+    name: "Grammar check",
+    blurb: "Flag grammar, spelling, and clarity issues in the open scene.",
     template:
-      "Rewrite the scene so it feels warmer and more sensory, without adding plot. Keep the same events and names. Return only the rewrite.\n\n{{scene}}",
+      "Proofread this scene for grammar, spelling, punctuation, and clarity. List each issue with a short quote, what is wrong, and a suggested fix. If nothing needs fixing, say so and mention one sentence that reads cleanly. Do not rewrite the whole scene.\n\n{{scene}}",
   },
   {
     id: "turn",
-    name: "A small turn",
-    blurb: "Three gentle plot possibilities.",
+    name: "Plot ideas",
+    blurb: "Three grounded plot possibilities from here.",
     template:
-      "Suggest three small, specific turns this story could take next. Ground each one in the characters and places below. Number them.\n\n{{world}}",
+      "Suggest three specific plot ideas this story could take next. Ground each one in the characters and places below. Number them and keep each idea to a few sentences.\n\n{{world}}",
   },
   {
     id: "interview",
@@ -48,9 +48,10 @@ export const BUILTIN_PLUGINS: PromptPlugin[] = [
   {
     id: "ask",
     name: "Ask your world",
-    blurb: "Question the project with a local model.",
+    blurb: "Question the whole novel and world notes with a local model.",
     needsQuestion: true,
-    template: "Answer the writer's question using only the world notes below. If the notes do not say, admit it.\n\nQuestion: {{question}}\n\n{{world}}",
+    template:
+      "Answer the writer's question using the full novel and world notes below. Prefer what is written in the manuscript and notes. If the material does not say, admit it.\n\nQuestion: {{question}}\n\n{{novel}}",
   },
   {
     id: "names",
@@ -65,6 +66,94 @@ export interface WorldContext {
   sceneTitle: string;
   sceneBody: string;
   packet: string;
+  novel: string;
+}
+
+const SCENE_PACKET_LIMIT = 12000;
+const NOVEL_PACKET_LIMIT = 120000;
+
+function formatEventLine(project: Project, event: Project["events"][number]): string {
+  const month = project.months[event.monthIndex]?.name ?? "Month";
+  const people = event.characterIds
+    .map((id) => project.characters.find((character) => character.id === id)?.name)
+    .filter(Boolean)
+    .join(", ");
+  return `- ${event.title} (${event.day} ${month}, year ${event.year})${people ? ` — ${people}` : ""}: ${event.summary}`;
+}
+
+function buildFullNovelPacket(project: Project): string {
+  const chapters = project.chapters.slice().sort((a, b) => a.order - b.order);
+  const bondKinds = new Map(project.bondKinds.map((kind) => [kind.id, kind.name]));
+  const lines = [
+    `Story: ${project.name} — ${project.tagline}`,
+    `Calendar: ${project.eraName} ${project.year}`,
+    `Months: ${project.months.map((month) => `${month.name} (${month.days} days)`).join("; ") || "(none)"}`,
+    "",
+    "People:",
+    ...(project.characters.length
+      ? project.characters.map((character) => {
+          const parts = [
+            `${character.name} (${character.role})`,
+            character.age ? `age ${character.age}` : "",
+            character.origin ? `from ${character.origin}` : "",
+            character.gift ? `gift: ${character.gift}` : "",
+            character.status ? `status: ${character.status}` : "",
+            character.personality ? `personality: ${character.personality}` : "",
+            character.summary ? `summary: ${character.summary}` : "",
+            character.backstory ? `backstory: ${character.backstory}` : "",
+            character.habits ? `habits: ${character.habits}` : "",
+            character.fears ? `fears: ${character.fears}` : "",
+          ].filter(Boolean);
+          return `- ${parts.join(". ")}`;
+        })
+      : ["- (none)"]),
+    "",
+    "Bonds:",
+    ...(project.relationships.length
+      ? project.relationships.map((bond) => {
+          const from = project.characters.find((character) => character.id === bond.fromId)?.name ?? "Unknown";
+          const to = project.characters.find((character) => character.id === bond.toId)?.name ?? "Unknown";
+          const kind = bondKinds.get(bond.kind) ?? bond.kind;
+          return `- ${from} → ${to} (${kind})${bond.note ? `: ${bond.note}` : ""}`;
+        })
+      : ["- (none)"]),
+    "",
+    "Lore:",
+    ...(project.lore.length
+      ? project.lore.map((entry) => `- ${entry.title} [${entry.category}]: ${entry.summary}\n${entry.body}`.trim())
+      : ["- (none)"]),
+    "",
+    "Threads / events:",
+    ...(project.events.length ? project.events.map((event) => formatEventLine(project, event)) : ["- (none)"]),
+    "",
+    "Manuscript:",
+  ];
+
+  if (!chapters.length) {
+    lines.push("(no chapters yet)");
+  } else {
+    for (const chapter of chapters) {
+      lines.push("", `## Chapter: ${chapter.title}`);
+      const scenes = project.scenes
+        .filter((scene) => scene.chapterId === chapter.id)
+        .sort((a, b) => a.order - b.order);
+      if (!scenes.length) {
+        lines.push("(no scenes)");
+        continue;
+      }
+      for (const scene of scenes) {
+        lines.push(
+          "",
+          `### Scene: ${scene.title} [${scene.status}, ${countWords(scene.body)} words]`,
+          scene.body.trim() || "(empty scene)",
+        );
+      }
+    }
+  }
+
+  const packet = lines.join("\n");
+  if (packet.length <= NOVEL_PACKET_LIMIT) return packet;
+  return `${packet.slice(0, NOVEL_PACKET_LIMIT)}\n\n[Novel context truncated for length.]`;
 }
 
 export function buildWorldContext(project: Project, sceneId: string | null): WorldContext {
@@ -83,18 +172,16 @@ export function buildWorldContext(project: Project, sceneId: string | null): Wor
     ...lore.map((entry) => `- ${entry.title} [${entry.category}]: ${entry.summary} ${entry.body}`),
     "",
     "Recent events:",
-    ...events.map((event) => {
-      const month = project.months[event.monthIndex]?.name ?? "Month";
-      return `- ${event.title} (${event.day} ${month}): ${event.summary}`;
-    }),
+    ...events.map((event) => formatEventLine(project, event)),
     "",
     scene ? `Current scene (${scene.title}, ${scene.status}, ${countWords(scene.body)} words):\n${scene.body}` : "No scene yet.",
   ];
-  const packet = lines.join("\n").slice(0, 12000);
+  const packet = lines.join("\n").slice(0, SCENE_PACKET_LIMIT);
   return {
     sceneTitle: scene?.title ?? "Untitled",
     sceneBody: scene?.body ?? "",
     packet,
+    novel: buildFullNovelPacket(project),
   };
 }
 
@@ -102,6 +189,7 @@ export function renderTemplate(template: string, ctx: WorldContext, question: st
   return template
     .replaceAll("{{scene}}", ctx.sceneBody || "(empty scene)")
     .replaceAll("{{world}}", ctx.packet)
+    .replaceAll("{{novel}}", ctx.novel)
     .replaceAll("{{question}}", question || "(no question)");
 }
 
@@ -119,11 +207,52 @@ export interface OllamaModel {
   name: string;
 }
 
+const OLLAMA_MODELS_KEY = "storymaker.ollama.models.v1";
+
+function normalizeOllamaUrl(baseUrl: string): string {
+  return baseUrl.replace(/\/$/, "");
+}
+
+export function getCachedOllamaModels(baseUrl: string): string[] {
+  try {
+    const raw = localStorage.getItem(OLLAMA_MODELS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as { url?: string; names?: string[] };
+    if (parsed.url !== normalizeOllamaUrl(baseUrl) || !Array.isArray(parsed.names)) return [];
+    return parsed.names.filter((name) => typeof name === "string" && name);
+  } catch {
+    return [];
+  }
+}
+
+function cacheOllamaModels(baseUrl: string, names: string[]) {
+  localStorage.setItem(
+    OLLAMA_MODELS_KEY,
+    JSON.stringify({ url: normalizeOllamaUrl(baseUrl), names }),
+  );
+}
+
 export async function listOllamaModels(baseUrl: string): Promise<OllamaModel[]> {
-  const response = await fetch(`${baseUrl.replace(/\/$/, "")}/api/tags`);
+  const root = normalizeOllamaUrl(baseUrl);
+  const response = await fetch(`${root}/api/tags`);
   if (!response.ok) throw new Error(`Ollama replied ${response.status}`);
   const data = (await response.json()) as { models?: { name: string }[] };
-  return (data.models ?? []).map((model) => ({ name: model.name }));
+  const models = (data.models ?? []).map((model) => ({ name: model.name }));
+  cacheOllamaModels(root, models.map((model) => model.name));
+  return models;
+}
+
+function consumeOllamaLine(line: string, onChunk: (text: string) => void) {
+  const trimmed = line.trim();
+  if (!trimmed) return;
+  let json: { message?: { content?: string }; error?: string };
+  try {
+    json = JSON.parse(trimmed) as { message?: { content?: string }; error?: string };
+  } catch {
+    return;
+  }
+  if (json.error) throw new Error(json.error);
+  if (json.message?.content) onChunk(json.message.content);
 }
 
 export async function streamOllamaChat(
@@ -133,13 +262,14 @@ export async function streamOllamaChat(
   onChunk: (text: string) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const response = await fetch(`${baseUrl.replace(/\/$/, "")}/api/chat`, {
+  const response = await fetch(`${normalizeOllamaUrl(baseUrl)}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     signal,
     body: JSON.stringify({
       model,
       stream: true,
+      keep_alive: "30m",
       messages: [
         {
           role: "system",
@@ -150,22 +280,27 @@ export async function streamOllamaChat(
       ],
     }),
   });
-  if (!response.ok || !response.body) throw new Error(`Ollama replied ${response.status}`);
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(detail.trim() || `Ollama replied ${response.status}`);
+  }
+  if (!response.body) throw new Error("Ollama returned an empty reply");
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      const json = JSON.parse(trimmed) as { message?: { content?: string } };
-      if (json.message?.content) onChunk(json.message.content);
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) consumeOllamaLine(line, onChunk);
     }
+    buffer += decoder.decode();
+    if (buffer.trim()) consumeOllamaLine(buffer, onChunk);
+  } finally {
+    reader.releaseLock();
   }
 }
 

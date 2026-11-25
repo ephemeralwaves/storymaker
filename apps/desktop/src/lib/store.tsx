@@ -8,11 +8,11 @@ import type {
   CalendarMonth,
   Character,
   LoreEntry,
-  MoodCard,
   Project,
   Relationship,
   Scene,
   ThreadEvent,
+  TrashedScene,
   ViewId,
   VisionCard,
   VisionEdge,
@@ -70,12 +70,15 @@ interface StoryApi {
   addVisionEdge: (fromId: string, toId: string) => void;
   updateVisionEdge: (edge: VisionEdge) => void;
   deleteVisionEdge: (id: string) => void;
-  saveScene: (scene: Scene) => void;
+  saveScene: (scene: Scene, opts?: { checkpoint?: boolean; skipHistory?: boolean }) => void;
+  undoSceneBody: () => void;
+  sceneUndoDepth: number;
   addChapter: () => void;
   addScene: (chapterId: string) => void;
-  deleteScene: (id: string) => void;
-  addMood: (card: Omit<MoodCard, "id">) => void;
-  deleteMood: (id: string) => void;
+  setAsideScene: (id: string) => void;
+  recoverScene: (id: string) => void;
+  discardTrashedScene: (id: string) => void;
+  emptyTrash: () => void;
   replaceProject: (project: Project) => void;
   resetSeed: () => void;
   bookId: string;
@@ -86,6 +89,9 @@ interface StoryApi {
 }
 
 const StoryContext = createContext<StoryApi | null>(null);
+
+const MAX_SCENE_REVISIONS = 10;
+const SCENE_EDIT_BURST_MS = 2000;
 
 async function mirrorToDesktop(project: Project): Promise<void> {
   const marker = (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
@@ -129,8 +135,36 @@ export function StoryProvider({ children }: { children: ReactNode }) {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(project.events[0]?.id ?? null);
   const [sessionBase, setSessionBase] = useState(0);
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [historyTick, setHistoryTick] = useState(0);
   const projectRef = useRef(project);
   projectRef.current = project;
+  const sceneHistoryRef = useRef<Record<string, string[]>>({});
+  const editBurstRef = useRef<{ sceneId: string; at: number } | null>(null);
+  const selectedSceneIdRef = useRef(selectedSceneId);
+  selectedSceneIdRef.current = selectedSceneId;
+
+  const clearSceneHistory = (id?: string) => {
+    if (id) {
+      if (!sceneHistoryRef.current[id]) return;
+      const next = { ...sceneHistoryRef.current };
+      delete next[id];
+      sceneHistoryRef.current = next;
+    } else {
+      sceneHistoryRef.current = {};
+      editBurstRef.current = null;
+    }
+    setHistoryTick((tick) => tick + 1);
+  };
+
+  const pushSceneRevision = (sceneId: string, body: string) => {
+    const stack = sceneHistoryRef.current[sceneId] ?? [];
+    if (stack[stack.length - 1] === body) return;
+    sceneHistoryRef.current = {
+      ...sceneHistoryRef.current,
+      [sceneId]: [...stack, body].slice(-MAX_SCENE_REVISIONS),
+    };
+    setHistoryTick((tick) => tick + 1);
+  };
 
   useEffect(() => {
     setVaultBook(bookId);
@@ -186,6 +220,11 @@ export function StoryProvider({ children }: { children: ReactNode }) {
     () => project.scenes.reduce((sum, scene) => sum + countWords(scene.body), 0),
     [project.scenes],
   );
+
+  const sceneUndoDepth = useMemo(() => {
+    void historyTick;
+    return selectedSceneId ? (sceneHistoryRef.current[selectedSceneId]?.length ?? 0) : 0;
+  }, [historyTick, selectedSceneId]);
 
   const patchProject = (recipe: (current: Project) => Project) => {
     setProject((current) => recipe(current));
@@ -439,13 +478,46 @@ export function StoryProvider({ children }: { children: ReactNode }) {
       })),
     deleteEvent: (id) =>
       patchProject((current) => ({ ...current, events: current.events.filter((item) => item.id !== id) })),
-    saveScene: (scene) =>
+    saveScene: (scene, opts) => {
+      const previous = projectRef.current.scenes.find((item) => item.id === scene.id);
+      if (previous && previous.body !== scene.body && !opts?.skipHistory) {
+        const now = Date.now();
+        const burst = editBurstRef.current;
+        const freshBurst = !burst || burst.sceneId !== scene.id || now - burst.at > SCENE_EDIT_BURST_MS;
+        if (opts?.checkpoint || freshBurst) {
+          pushSceneRevision(scene.id, previous.body);
+        }
+        editBurstRef.current = { sceneId: scene.id, at: now };
+      }
       patchProject((current) => {
-        const previous = current.scenes.find((item) => item.id === scene.id);
-        const before = previous ? countWords(previous.body) : 0;
+        const prior = current.scenes.find((item) => item.id === scene.id);
+        const before = prior ? countWords(prior.body) : 0;
         const nextScenes = current.scenes.map((item) => (item.id === scene.id ? scene : item));
         return noteWords(before, countWords(scene.body), { ...current, scenes: nextScenes });
-      }),
+      });
+    },
+    undoSceneBody: () => {
+      const id = selectedSceneIdRef.current;
+      if (!id) return;
+      const stack = sceneHistoryRef.current[id] ?? [];
+      if (!stack.length) return;
+      const body = stack[stack.length - 1];
+      sceneHistoryRef.current = {
+        ...sceneHistoryRef.current,
+        [id]: stack.slice(0, -1),
+      };
+      setHistoryTick((tick) => tick + 1);
+      editBurstRef.current = null;
+      patchProject((current) => {
+        const prior = current.scenes.find((item) => item.id === id);
+        if (!prior) return current;
+        const before = countWords(prior.body);
+        const next = { ...prior, body };
+        const nextScenes = current.scenes.map((item) => (item.id === id ? next : item));
+        return noteWords(before, countWords(body), { ...current, scenes: nextScenes });
+      });
+    },
+    sceneUndoDepth,
     addChapter: () =>
       patchProject((current) => ({
         ...current,
@@ -470,14 +542,71 @@ export function StoryProvider({ children }: { children: ReactNode }) {
       setView("hearth");
       patchProject((current) => ({ ...current, scenes: [...current.scenes, scene] }));
     },
-    deleteScene: (id) => {
-      patchProject((current) => ({ ...current, scenes: current.scenes.filter((item) => item.id !== id) }));
-      setSelectedSceneId((current) => (current === id ? null : current));
+    setAsideScene: (id) => {
+      clearSceneHistory(id);
+      const remaining = projectRef.current.scenes.filter((item) => item.id !== id);
+      const nextSelected = selectedSceneIdRef.current === id ? (remaining[0]?.id ?? null) : selectedSceneIdRef.current;
+      patchProject((current) => {
+        const scene = current.scenes.find((item) => item.id === id);
+        if (!scene) return current;
+        const chapterTitle = current.chapters.find((chapter) => chapter.id === scene.chapterId)?.title || "Chapter";
+        const entry: TrashedScene = {
+          scene,
+          chapterTitle,
+          trashedAt: new Date().toISOString(),
+        };
+        return {
+          ...current,
+          scenes: current.scenes.filter((item) => item.id !== id),
+          trash: [entry, ...(current.trash ?? []).filter((item) => item.scene.id !== id)],
+        };
+      });
+      setSelectedSceneId(nextSelected);
     },
-    addMood: (card) =>
-      patchProject((current) => ({ ...current, mood: [...current.mood, { ...card, id: uid("mood") }] })),
-    deleteMood: (id) => patchProject((current) => ({ ...current, mood: current.mood.filter((item) => item.id !== id) })),
+    recoverScene: (id) => {
+      let recoveredId: string | null = null;
+      patchProject((current) => {
+        const entry = (current.trash ?? []).find((item) => item.scene.id === id);
+        if (!entry) return current;
+        let chapters = current.chapters;
+        let chapterId = entry.scene.chapterId;
+        if (!chapters.some((chapter) => chapter.id === chapterId)) {
+          if (!chapters.length) {
+            const chapter = { id: uid("chapter"), title: entry.chapterTitle || "Chapter 1", order: 0 };
+            chapters = [chapter];
+            chapterId = chapter.id;
+          } else {
+            chapterId = chapters.slice().sort((a, b) => a.order - b.order)[0].id;
+          }
+        }
+        const order = current.scenes.filter((scene) => scene.chapterId === chapterId).length;
+        const scene: Scene = { ...entry.scene, chapterId, order };
+        recoveredId = scene.id;
+        return {
+          ...current,
+          chapters,
+          scenes: [...current.scenes, scene],
+          trash: (current.trash ?? []).filter((item) => item.scene.id !== id),
+        };
+      });
+      if (recoveredId) {
+        setSelectedSceneId(recoveredId);
+        setView("hearth");
+      }
+    },
+    discardTrashedScene: (id) => {
+      clearSceneHistory(id);
+      patchProject((current) => ({
+        ...current,
+        trash: (current.trash ?? []).filter((item) => item.scene.id !== id),
+      }));
+    },
+    emptyTrash: () => {
+      for (const entry of projectRef.current.trash ?? []) clearSceneHistory(entry.scene.id);
+      patchProject((current) => ({ ...current, trash: [] }));
+    },
     replaceProject: (next) => {
+      clearSceneHistory();
       const normalized = normalizeProject(next);
       setProject(normalized);
       setSelectedCharacterId(next.characters[0]?.id ?? null);
@@ -486,6 +615,7 @@ export function StoryProvider({ children }: { children: ReactNode }) {
       setSelectedEventId(normalized.events[0]?.id ?? null);
     },
     resetSeed: () => {
+      clearSceneHistory();
       const next = normalizeProject(createSeed());
       setProject(next);
       setSelectedCharacterId(next.characters[0]?.id ?? null);
@@ -498,6 +628,7 @@ export function StoryProvider({ children }: { children: ReactNode }) {
     openBook: (id) => {
       const next = readBook(id);
       if (!next) return;
+      clearSceneHistory();
       setVaultBook(id);
       setBookId(id);
       setProject(next);
@@ -509,6 +640,7 @@ export function StoryProvider({ children }: { children: ReactNode }) {
       const id = uid("book");
       const next = blankProject(title);
       const book: BookMeta = { id, title: next.name, tagline: next.tagline, spine: books.length };
+      clearSceneHistory();
       setBooks((current) => [...current, book]);
       setVaultBook(id);
       setBookId(id);

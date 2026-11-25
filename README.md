@@ -1,6 +1,6 @@
 # StoryMaker
 
-StoryMaker is a local-first desktop app for people who build worlds and write inside them. It keeps characters, lore, timelines, a custom calendar, a mood board, and a long-form writing desk on your machine. A studio can ask a local model (Ollama) or an HTTP MCP server for suggestions. Those suggestions never change a scene until you insert them.
+StoryMaker is a local-first desktop app for people who build worlds and write inside them. It keeps characters, lore, timelines, a custom calendar, and a long-form writing desk on your machine. A local model (Ollama) can offer suggestions from the Hearth. Those suggestions never change a scene until you insert them.
 
 Privacy is by design. There is no account, no cloud sync, and no telemetry. Your stories stay on this computer: in the browser profile that is running the app, and optionally in an Obsidian vault folder you choose. This repository is only the app code and docs; it does not hold your writing.
 
@@ -14,7 +14,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:1420.
+Open http://localhost:1420. The same `npm run dev` also listens on your LAN, so other devices can use `http://<this-machine-ip>:1420` (for example `http://192.168.1.19:1420`). Each browser keeps its own shelf of stories.
 
 Desktop shell (Windows, macOS, Linux), after Rust is installed:
 
@@ -27,7 +27,7 @@ npm run tauri dev
 
 - Six original themes, text size, warm-light filter, clear type, and reduced motion
 - Procedural room tones (rain, hearth, library, forest, cafe) generated in the browser, so no recorded audio is shipped
-- People, lore shelves, story threads, a custom calendar, the Hearth writing desk, mood board, and a relationship map
+- People, lore shelves, story threads, a custom calendar, the Hearth writing desk, Storybook reader, and a relationship map
 - Lamp ritual, writing streak, and a 14-day word chart
 - Search across the open project
 - JSON project export/import and Markdown export of people and lore

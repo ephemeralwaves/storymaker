@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { getCachedOllamaModels, listOllamaModels } from "../lib/ai";
 import { useStory } from "../lib/store";
 import { downloadText } from "../lib/util";
 import { chooseVaultFolder, downloadVaultZip, explainVaultError, filesFromDirectoryInput, importVaultFiles, importVaultZip, keptProject, readLinkedProject, rememberFolderName, subscribeVault, vaultUsesDesktopPicker, writeRememberedVault, type VaultStatus } from "../lib/vaultFolder";
@@ -7,6 +8,7 @@ import { AMBIENCES, THEMES, type Project } from "../types";
 export function SettingsView() {
   const story = useStory();
   const { project } = story;
+  const { comfort } = project;
   const [name, setName] = useState(project.name);
   const [tagline, setTagline] = useState(project.tagline);
   const [vault, setVault] = useState<VaultStatus>({ folder: null, error: "", savedAt: null });
@@ -14,6 +16,15 @@ export function SettingsView() {
   const [pickingFolder, setPickingFolder] = useState(false);
   const folderInput = useRef<HTMLInputElement>(null);
   const folderAccepted = useRef(false);
+  const [models, setModels] = useState<string[]>(() => getCachedOllamaModels(comfort.ollamaUrl));
+  const [ollamaStatus, setOllamaStatus] = useState(() =>
+    comfort.ollamaModel
+      ? `Using ${comfort.ollamaModel}`
+      : getCachedOllamaModels(comfort.ollamaUrl).length
+        ? "Connected earlier. Choose a model."
+        : "Not connected",
+  );
+  const [ollamaBusy, setOllamaBusy] = useState(false);
 
   useEffect(() => subscribeVault(setVault), []);
   useEffect(() => {
@@ -30,10 +41,47 @@ export function SettingsView() {
     return () => input.removeEventListener("cancel", onCancel);
   }, []);
 
+  useEffect(() => {
+    setModels(getCachedOllamaModels(comfort.ollamaUrl));
+  }, [comfort.ollamaUrl]);
+
+  const connectOllama = async () => {
+    setOllamaBusy(true);
+    setOllamaStatus("Looking for Ollama…");
+    try {
+      const found = await listOllamaModels(comfort.ollamaUrl);
+      const names = found.map((model) => model.name);
+      setModels(names);
+      const onDevice = names.filter((name) => !name.endsWith(":cloud") && !name.includes("embed"));
+      let selected = comfort.ollamaModel;
+      if (!selected || !names.includes(selected)) {
+        selected = onDevice.find((name) => name.startsWith("llama")) ?? onDevice[0] ?? names[0] ?? "";
+        if (selected) story.setComfort({ ollamaModel: selected });
+      }
+      const cloudNote = selected.endsWith(":cloud")
+        ? " The selected model is marked cloud, so a prompt may leave this machine."
+        : "";
+      setOllamaStatus(
+        (names.length
+          ? `Found ${names.length} model${names.length === 1 ? "" : "s"} (${onDevice.length} on this machine)`
+          : "Ollama is up, with no models yet") + cloudNote,
+      );
+    } catch (error) {
+      setOllamaStatus(error instanceof Error ? error.message : "Could not reach Ollama");
+    } finally {
+      setOllamaBusy(false);
+    }
+  };
+
   const takeImport = async (imported: { project: Project }) => {
     story.replaceProject(imported.project);
     setVaultMessage("Imported the vault. People, lore, scenes, and threads are notes again.");
   };
+
+  const modelOptions =
+    comfort.ollamaModel && !models.includes(comfort.ollamaModel)
+      ? [comfort.ollamaModel, ...models]
+      : models;
 
   return (
     <div className="stack">
@@ -131,9 +179,47 @@ export function SettingsView() {
       </section>
 
       <section className="card stack">
+        <div className="row spread wrap">
+          <div>
+            <h3>Local model</h3>
+            <p className="muted">Connect to Ollama on this machine. Lumen on the Hearth uses the model you pick here.</p>
+          </div>
+          <span className="pill">{ollamaStatus}</span>
+        </div>
+        <div className="form-grid">
+          <label className="field">
+            <span>Ollama address</span>
+            <input
+              value={comfort.ollamaUrl}
+              onChange={(e) => story.setComfort({ ollamaUrl: e.target.value })}
+            />
+          </label>
+          <label className="field">
+            <span>Model</span>
+            <select
+              value={comfort.ollamaModel}
+              onChange={(e) => story.setComfort({ ollamaModel: e.target.value })}
+            >
+              <option value="">Choose a model</option>
+              {modelOptions.map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="row wrap">
+          <button className="btn primary" disabled={ollamaBusy} onClick={() => void connectOllama()}>
+            {ollamaBusy ? "Connecting…" : "Connect to Ollama"}
+          </button>
+        </div>
+      </section>
+
+      <section className="card stack">
         <h3>Obsidian vault</h3>
         <p className="muted">
-          Each person, lore note, scene, thread, and mood card is a Markdown file with wikilinks. The vision board is a canvas file. Choose a folder and Obsidian can open that same folder. While it stays linked, StoryMaker writes the notes when the story changes.
+          Each person, lore note, scene, and thread is a Markdown file with wikilinks. The vision board is a canvas file. Choose a folder and Obsidian can open that same folder. While it stays linked, StoryMaker writes the notes when the story changes.
         </p>
         <p>
           {vault.folder

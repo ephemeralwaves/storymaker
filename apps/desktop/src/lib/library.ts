@@ -84,7 +84,7 @@ export function blankProject(name: string): Project {
     events: [],
     chapters: [{ id: uid("chapter"), title: "Chapter 1", order: 0 }],
     scenes: [],
-    mood: [],
+    trash: [],
     vision: { cards: [], edges: [] },
     wordsByDay: {},
     streak: 0,

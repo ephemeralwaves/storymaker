@@ -2,7 +2,7 @@
 
 ## Product
 
-StoryMaker is an offline-first worldbuilding and writing application for Windows, macOS, and Linux. It is for novelists and game masters who want characters, lore, timelines, calendars, mood, and manuscript scenes in one private project.
+StoryMaker is an offline-first worldbuilding and writing application for Windows, macOS, and Linux. It is for novelists and game masters who want characters, lore, timelines, calendars, and manuscript scenes in one private project.
 
 Local models are optional. The Studio sends a visible context packet to a model the user is already running and shows the reply as a suggestion.
 
@@ -16,14 +16,13 @@ Local models are optional. The Studio sends a visible context packet to a model 
 - **Bonds.** People are cards on a board. Drag a card to place it, drag the background to pan, scroll to zoom, and drag the dot on a card to link two people. Bond types are a list you can rename, add, and remove. The selected link edits who it joins, which type it is, and a note.
 - **Vision.** An Obsidian-style canvas. Pin notes or cards that point at a person, lore page, thread, or scene. Drag to arrange them and draw links between cards. Open jumps to the linked page.
 - **Hearth.** Chapters and scenes, status, word goal, focus mode, people and lore pinned to the scene.
-- **Mood.** Colors, notes, and images resized in the browser before they are saved.
 - **Bonds.** Relationship kinds drawn as a circle map.
 - **Studio.** Ollama chat streaming, prompt plugins, HTTP MCP `initialize`, `tools/list`, and `tools/call`.
 - **Settings.** Themes, comfort, export, import.
 
 ## Data
 
-A project is one JSON document: people, relationships, lore, events, chapters, scenes, mood cards, calendar, comfort settings, and per-day word counts.
+A project is one JSON document: people, relationships, lore, events, chapters, scenes, calendar, comfort settings, and per-day word counts.
 
 Browser builds persist it under `localStorage` key `storymaker.project.v1`. The Tauri shell also writes `project.json` in the OS app data directory through `save_project` / `load_project`.
 

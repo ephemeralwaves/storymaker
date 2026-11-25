@@ -203,23 +203,6 @@ export function createSeed(): Project {
         body: "The tin was empty except for a brass button that did not match any coat Mira owned.\n\nShe walked to Heddle Light in the wet dark. Bram was already slicing bread. He looked at the button, then at her face, and pushed the larger piece across the table.\n\n\"Eat first,\" he said. \"Maps can be stolen. Breakfast is harder to ruin.\"",
       },
     ],
-    mood: [
-      { id: "m1", kind: "color", title: "Lamp amber", value: "#e2a15a" },
-      { id: "m2", kind: "color", title: "Tide ink", value: "#2c4a5e" },
-      { id: "m3", kind: "color", title: "Moss glow", value: "#8eae78" },
-      {
-        id: "m4",
-        kind: "note",
-        title: "Sound of the room",
-        value: "Kettle tick, rain on glass, a gull that refuses to go to bed, wool cuffs on a wooden table.",
-      },
-      {
-        id: "m5",
-        kind: "note",
-        title: "What the light does",
-        value: "Low, round, and a little too warm. It makes brass look kind and wet rope look like gold.",
-      },
-    ],
     vision: {
       cards: [
         { id: "v-mira", kind: "person", refId: "mira", x: 60, y: 70, note: "The person the board keeps circling back to.", media: "" },
@@ -236,6 +219,7 @@ export function createSeed(): Project {
       fontScale: 1,
       manuscriptScale: 1.12,
       manuscriptFont: "serif",
+      readerSkin: "glow",
       reducedMotion: false,
       warmLight: false,
       clearType: false,
@@ -246,6 +230,7 @@ export function createSeed(): Project {
       mcpUrl: "http://127.0.0.1:8080/mcp",
       customPlugins: [],
     },
+    trash: [],
     wordsByDay: {},
     streak: 0,
     lastWriteDay: null,

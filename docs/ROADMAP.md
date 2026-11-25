@@ -7,7 +7,7 @@ Version 0.1.0 is the app in this repository: the writing room, the sample story,
 - Tauri 2 shell and Vite/React UI
 - Theme tokens and six themes
 - Comfort settings and procedural room tones
-- People, lore, threads, calendar, hearth, mood, bonds, and a vision canvas
+- People, lore, threads, calendar, hearth, bonds, and a vision canvas
 - Calendar months can be added, removed, and renamed without losing the text cursor
 - Calendar days open the thread stored on that date
 - Bonds and Vision boards pan, zoom, and let you drag cards and links

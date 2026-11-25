@@ -13,10 +13,9 @@ export type ViewId =
   | "threads"
   | "calendar"
   | "hearth"
-  | "mood"
+  | "storybook"
   | "bonds"
   | "vision"
-  | "studio"
   | "settings";
 
 export interface Character {
@@ -87,11 +86,10 @@ export interface Scene {
   order: number;
 }
 
-export interface MoodCard {
-  id: string;
-  kind: "color" | "note" | "image";
-  title: string;
-  value: string;
+export interface TrashedScene {
+  scene: Scene;
+  chapterTitle: string;
+  trashedAt: string;
 }
 
 export interface CustomPlugin {
@@ -102,11 +100,14 @@ export interface CustomPlugin {
 
 export type ManuscriptFont = "serif" | "sans" | "clear";
 
+export type ReaderSkin = "glow" | "illuminated";
+
 export interface Comfort {
   theme: ThemeId;
   fontScale: number;
   manuscriptScale: number;
   manuscriptFont: ManuscriptFont;
+  readerSkin: ReaderSkin;
   reducedMotion: boolean;
   warmLight: boolean;
   clearType: boolean;
@@ -163,7 +164,7 @@ export interface Project {
   events: ThreadEvent[];
   chapters: Chapter[];
   scenes: Scene[];
-  mood: MoodCard[];
+  trash: TrashedScene[];
   vision: VisionBoard;
   comfort: Comfort;
   wordsByDay: Record<string, number>;

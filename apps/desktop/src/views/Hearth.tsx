@@ -1,7 +1,9 @@
+import { useState } from "react";
+import { DeskCompanion } from "../components/DeskCompanion";
+import { Field } from "../components/ui";
 import { countWords } from "../lib/util";
 import { useStory } from "../lib/store";
 import { SCENE_STATUSES, type ManuscriptFont, type Scene } from "../types";
-import { Field } from "../components/ui";
 
 export function HearthView() {
   const story = useStory();
@@ -9,6 +11,8 @@ export function HearthView() {
   const words = scene ? countWords(scene.body) : 0;
   const { manuscriptFont, manuscriptScale } = story.project.comfort;
   const fontFamily = manuscriptFont === "sans" ? "var(--sans)" : manuscriptFont === "clear" ? "var(--clear)" : "var(--serif)";
+  const trash = story.project.trash ?? [];
+  const [trashOpen, setTrashOpen] = useState(false);
 
   const update = (patch: Partial<Scene>) => {
     if (!scene) return;
@@ -49,6 +53,60 @@ export function HearthView() {
                 ))}
             </div>
           ))}
+        <div className={trashOpen ? "hearth-trash open" : "hearth-trash"}>
+          <div className="row spread hearth-trash-head">
+            <button
+              type="button"
+              className="hearth-trash-toggle"
+              aria-expanded={trashOpen}
+              onClick={() => setTrashOpen((open) => !open)}
+            >
+              <span className="eyebrow">Set aside ({trash.length})</span>
+              <em>{trashOpen ? "Hide" : "Show"}</em>
+            </button>
+            {trashOpen && trash.length ? (
+              <button
+                type="button"
+                className="text-btn"
+                onClick={() => {
+                  if (confirm("Permanently discard every scene set aside?")) story.emptyTrash();
+                }}
+              >
+                Empty
+              </button>
+            ) : null}
+          </div>
+          {trashOpen ? (
+            trash.length === 0 ? (
+              <p className="muted hearth-trash-empty">Scenes you set aside wait here.</p>
+            ) : (
+              trash.map((entry) => (
+                <div key={entry.scene.id} className="hearth-trash-item">
+                  <div>
+                    <strong>{entry.scene.title}</strong>
+                    <span>
+                      {entry.chapterTitle} · {countWords(entry.scene.body)} words
+                    </span>
+                  </div>
+                  <div className="row wrap">
+                    <button type="button" className="text-btn" onClick={() => story.recoverScene(entry.scene.id)}>
+                      Recover
+                    </button>
+                    <button
+                      type="button"
+                      className="text-btn danger-text"
+                      onClick={() => {
+                        if (confirm(`Discard “${entry.scene.title}” forever?`)) story.discardTrashedScene(entry.scene.id);
+                      }}
+                    >
+                      Discard
+                    </button>
+                  </div>
+                </div>
+              ))
+            )
+          ) : null}
+        </div>
       </aside>
       {scene ? (
         <section className="page">
@@ -101,6 +159,15 @@ export function HearthView() {
               {words.toLocaleString()} / {scene.goal.toLocaleString()} words
             </span>
             <span>{story.project.lampLit ? `Session ${story.sessionWords} words` : "Lamp resting"}</span>
+            <button
+              type="button"
+              className="btn"
+              disabled={!story.sceneUndoDepth}
+              onClick={() => story.undoSceneBody()}
+              title="Restore an earlier version of this scene (up to 10)"
+            >
+              Undo
+            </button>
             <label>
               Goal
               <input
@@ -111,6 +178,7 @@ export function HearthView() {
               />
             </label>
           </footer>
+          <DeskCompanion scene={scene} />
           <aside className="context">
           <h3>On the desk</h3>
           <Field label="People in the scene">
@@ -155,7 +223,7 @@ export function HearthView() {
               })}
             </div>
           </Field>
-          <button className="btn danger" onClick={() => story.deleteScene(scene.id)}>
+          <button className="btn danger" onClick={() => story.setAsideScene(scene.id)}>
             Set this scene aside
           </button>
           </aside>

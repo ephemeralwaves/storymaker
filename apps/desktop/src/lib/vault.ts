@@ -9,7 +9,6 @@ import {
   type Character,
   type Comfort,
   type LoreEntry,
-  type MoodCard,
   type Project,
   type Relationship,
   type Role,
@@ -157,18 +156,6 @@ export function projectToVault(project: Project, audio: Map<string, AudioBits> =
     );
   }
 
-  for (const card of project.mood) {
-    const path = uniquePath(used, `Mood/${fileName(card.title)}.md`);
-    const image = card.kind === "image" ? embedImage(files, used, card.title, card.value) : "";
-    addText(
-      path,
-      renderNote(
-        { storymaker: "mood", id: card.id, kind: card.kind, tags: ["mood"] },
-        card.kind === "image" ? image : card.value,
-      ),
-    );
-  }
-
   const kindName = new Map(project.bondKinds.map((kind) => [kind.id, kind.name]));
   const bonds = [
     "## Kinds",
@@ -209,6 +196,7 @@ export function projectToVault(project: Project, audio: Map<string, AudioBits> =
         streak: project.streak,
         lastWriteDay: project.lastWriteDay,
         lampLit: project.lampLit,
+        trash: project.trash ?? [],
       },
       null,
       2,
@@ -231,7 +219,6 @@ export function vaultToProject(files: VaultFile[], base: Project): { project: Pr
     next.scenes = [];
     next.chapters = [];
     next.events = [];
-    next.mood = [];
     next.relationships = [];
     next.bondKinds = [];
   }
@@ -241,7 +228,6 @@ export function vaultToProject(files: VaultFile[], base: Project): { project: Pr
     lore: false,
     scene: false,
     thread: false,
-    mood: false,
   };
   const chapters = new Map<string, { id: string; title: string; order: number }>();
   const monthNames = new Map<string, string>();
@@ -316,12 +302,7 @@ export function vaultToProject(files: VaultFile[], base: Project): { project: Pr
       next.events.push(event.event);
       continue;
     }
-    if (kind === "mood" && path.startsWith("Mood/")) {
-      if (!seen.mood && !full) next.mood = [];
-      seen.mood = true;
-      next.mood.push(moodFrom(path, data, body, byPath));
-      continue;
-    }
+    if (kind === "mood" || path.startsWith("Mood/")) continue;
     const loose = loreFrom(path, data, body, byPath);
     loose.category = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "Notes";
     upsert(next.lore, loose, (item) => item.id === loose.id || item.title.toLowerCase() === loose.title.toLowerCase());
@@ -456,18 +437,6 @@ function threadFrom(path: string, data: Record<string, Yaml>, body: string): { e
       year: yamlNumber(data.year, 1),
       characterIds: yamlList(data.characters),
     },
-  };
-}
-
-function moodFrom(path: string, data: Record<string, Yaml>, body: string, files: Map<string, VaultFile>): MoodCard {
-  const kind = yamlString(data.kind, "note");
-  const safeKind = kind === "color" || kind === "image" || kind === "note" ? kind : "note";
-  const image = readEmbed(body, files);
-  return {
-    id: yamlString(data.id, slug(leaf(path)) || uid("mood")),
-    kind: safeKind,
-    title: leaf(path),
-    value: safeKind === "image" ? (image ?? "") : body.trim(),
   };
 }
 
@@ -661,12 +630,14 @@ function applyComfort(project: Project, text: string): void {
       streak?: number;
       lastWriteDay?: string | null;
       lampLit?: boolean;
+      trash?: Project["trash"];
     };
     if (parsed.comfort) project.comfort = { ...project.comfort, ...parsed.comfort };
     if (parsed.wordsByDay) project.wordsByDay = parsed.wordsByDay;
     if (typeof parsed.streak === "number") project.streak = parsed.streak;
     if ("lastWriteDay" in parsed) project.lastWriteDay = parsed.lastWriteDay ?? null;
     if (typeof parsed.lampLit === "boolean") project.lampLit = parsed.lampLit;
+    if (Array.isArray(parsed.trash)) project.trash = parsed.trash;
   } catch {
     /* keep the comfort settings already open */
   }
