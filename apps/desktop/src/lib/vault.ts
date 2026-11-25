@@ -1,4 +1,5 @@
 import { renderNote, splitFrontmatter, wikiTarget, yamlList, yamlNumber, yamlString, type Yaml } from "./markdown";
+import { legacyCalendar, reckonProject } from "./calendar";
 import { normalizeProject } from "./normalize";
 import {
   DEFAULT_BOND_KINDS,
@@ -148,6 +149,8 @@ export function projectToVault(project: Project, audio: Map<string, AudioBits> =
           year: event.year,
           month,
           day: event.day,
+          date: event.undated ? "" : reckonProject(project).formatDate({ year: event.year, monthIndex: event.monthIndex, day: event.day }),
+          ...(event.undated ? { undated: true } : {}),
           characters: event.characterIds.map((id) => wiki(nameOf(project, "person", id))),
           tags: ["thread"],
         },
@@ -170,10 +173,22 @@ export function projectToVault(project: Project, audio: Map<string, AudioBits> =
   ].join("\n");
   addText("Bonds.md", renderNote({ storymaker: "bonds", tags: ["bonds"] }, bonds));
 
+  const reckoner = reckonProject(project);
   const months = project.months.map((month) => `- ${month.name} (${month.days})`).join("\n");
+  const firstEra = project.calendar.eras.find((era) => era.counts === "up") ?? project.calendar.eras[0];
+  const setup = JSON.stringify({ months: project.months, calendar: project.calendar }, null, 2);
   addText(
     "Calendar.md",
-    renderNote({ storymaker: "calendar", era: project.eraName, year: project.year, tags: ["calendar"] }, months),
+    renderNote(
+      {
+        storymaker: "calendar",
+        era: firstEra?.name ?? "",
+        year: reckoner.eraFor(project.calendar.now.year).shown,
+        now: reckoner.formatDate(project.calendar.now),
+        tags: ["calendar"],
+      },
+      `${months}\n\n## Setup\n\nStoryMaker reads this block to restore eras, weekdays, leap years, holidays and moons.\n\n\`\`\`json\n${setup}\n\`\`\``,
+    ),
   );
 
   const peopleLinks = project.characters.map((person) => `- ${wiki(person.name)}`).join("\n");
@@ -252,10 +267,15 @@ export function vaultToProject(files: VaultFile[], base: Project): { project: Pr
       continue;
     }
     if (kind === "calendar" && path === "Calendar.md") {
-      next.eraName = yamlString(data.era, next.eraName);
-      next.year = yamlNumber(data.year, next.year);
-      const months = monthsFrom(body);
-      if (months.length) next.months = months;
+      const setup = calendarSetupFrom(body);
+      if (setup) {
+        next.months = setup.months;
+        next.calendar = setup.calendar;
+      } else {
+        const months = monthsFrom(body);
+        if (months.length) next.months = months;
+        next.calendar = legacyCalendar(yamlString(data.era, "Year"), yamlNumber(data.year, 1));
+      }
       continue;
     }
     if (kind === "bonds" && path === "Bonds.md") {
@@ -435,6 +455,7 @@ function threadFrom(path: string, data: Record<string, Yaml>, body: string): { e
       monthIndex: 0,
       day: yamlNumber(data.day, 1),
       year: yamlNumber(data.year, 1),
+      undated: data.undated === true || data.undated === "true" ? true : undefined,
       characterIds: yamlList(data.characters),
     },
   };
@@ -465,6 +486,18 @@ function upsert<T>(list: T[], item: T, same: (item: T) => boolean): void {
 
 function peopleHas(project: Project, id: string): boolean {
   return project.characters.some((person) => person.id === id);
+}
+
+function calendarSetupFrom(body: string): { months: CalendarMonth[]; calendar: Project["calendar"] } | null {
+  const block = /```json\s*([\s\S]*?)```/.exec(body)?.[1];
+  if (!block) return null;
+  try {
+    const parsed = JSON.parse(block) as { months?: CalendarMonth[]; calendar?: Project["calendar"] };
+    if (!Array.isArray(parsed.months) || !parsed.months.length || !parsed.calendar) return null;
+    return { months: parsed.months, calendar: parsed.calendar };
+  } catch {
+    return null;
+  }
 }
 
 function monthsFrom(body: string): CalendarMonth[] {

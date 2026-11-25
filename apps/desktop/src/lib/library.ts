@@ -1,3 +1,4 @@
+import { buildPreset } from "./calendar";
 import { normalizeProject } from "./normalize";
 import { createSeed, STORAGE_KEY } from "../seed";
 import type { Project } from "../types";
@@ -73,8 +74,11 @@ export function writeLibrary(state: { activeId: string; books: BookMeta[]; proje
 
 export function blankProject(name: string): Project {
   const seed = createSeed();
+  const { months, calendar } = buildPreset("gregorian");
   return normalizeProject({
     ...seed,
+    months,
+    calendar,
     id: uid("story"),
     name: name.trim() || "Untitled story",
     tagline: "A new story, still quiet.",

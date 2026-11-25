@@ -1,0 +1,895 @@
+<title>StoryMaker Calendar Mockup</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,400&family=Nunito:wght@500;600;700;800&display=swap">
+<style>
+/* Layout: tab bar over three views. "Calendar" and "Set up time" sit inside an app-window mock that
+   uses StoryMaker's own Hearth Parchment tokens (and a dusk palette in dark mode). The setup page is
+   a form column with a sticky live preview; every change re-renders the real calendar engine below. */
+:root {
+  --bg: #f3e2cb;
+  --bg-deep: #e7d0b4;
+  --paper: #fff8ee;
+  --ink: #3c291f;
+  --muted: #7a5b4a;
+  --accent: #d06a32;
+  --accent-ink: #fff8f2;
+  --line: #ead7c2;
+  --soft: #f8ecdc;
+  --now: #c9923d;
+  --shadow: 0 18px 40px rgba(92, 52, 24, 0.08);
+  --serif: "Fraunces", Georgia, serif;
+  --sans: "Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #2c2236; --bg-deep: #21182a; --paper: #3c2e4a; --ink: #f8eef6; --muted: #d8c2d6;
+    --accent: #e0a0c4; --accent-ink: #2c2236; --line: #5d4a68; --soft: #342842; --now: #e6bd6a;
+    --shadow: 0 18px 40px rgba(0, 0, 0, 0.3); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #2c2236; --bg-deep: #21182a; --paper: #3c2e4a; --ink: #f8eef6; --muted: #d8c2d6;
+  --accent: #e0a0c4; --accent-ink: #2c2236; --line: #5d4a68; --soft: #342842; --now: #e6bd6a;
+  --shadow: 0 18px 40px rgba(0, 0, 0, 0.3); color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.5; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+h1, h2, h3, h4 { font-family: var(--serif); font-weight: 600; margin: 0; text-wrap: balance; }
+
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.topbar-in { max-width: 1320px; margin: 0 auto; display: flex; align-items: center; gap: 12px 18px; flex-wrap: wrap; padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.brand { font-family: var(--serif); font-weight: 600; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; }
+.brand small { font-family: var(--sans); font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.tabs { margin-left: auto; display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--paper); border: 1px solid var(--line); }
+.tabs a { text-decoration: none; color: var(--muted); font-weight: 700; font-size: .88rem; padding: 6px 14px; border-radius: 999px; }
+.tabs a[aria-current="page"] { background: var(--accent); color: var(--accent-ink); }
+
+.wrap { max-width: 1320px; margin: 0 auto; padding-block: 22px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.lede { margin-bottom: 16px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 20px; align-items: end; }
+.lede h1 { font-size: clamp(1.3rem, 2.6vw, 1.8rem); }
+.lede p { margin: 4px 0 0; color: var(--muted); max-width: 70ch; }
+.view[hidden] { display: none !important; }
+
+.window { display: grid; grid-template-columns: 196px minmax(0, 1fr); border: 1px solid var(--line); border-radius: 20px; overflow: hidden; background: var(--bg); box-shadow: var(--shadow); }
+.rail { background: var(--bg-deep); border-right: 1px solid var(--line); padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; }
+.rail .g { font-size: .64rem; letter-spacing: .16em; text-transform: uppercase; font-weight: 800; color: var(--muted); padding: 10px 12px 2px; }
+.rail a { padding: 7px 12px; border-radius: 999px; color: var(--ink); text-decoration: none; font-size: .9rem; font-weight: 600; }
+.rail a.on { background: var(--paper); box-shadow: var(--shadow); }
+.main { min-width: 0; padding: 18px; display: grid; gap: 14px; align-content: start; }
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: 18px; padding: 16px; box-shadow: var(--shadow); min-width: 0; }
+.eyebrow { font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 800; margin: 0 0 2px; }
+.btn { text-decoration: none; color: var(--ink); border: 1px solid var(--line); background: color-mix(in srgb, var(--paper) 80%, var(--bg)); border-radius: 999px; padding: 7px 14px; cursor: pointer; font-weight: 700; font-size: .86rem; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.btn.icon { width: 36px; height: 36px; padding: 0; display: grid; place-items: center; }
+.seg { display: inline-flex; padding: 3px; border-radius: 999px; border: 1px solid var(--line); background: var(--soft); }
+.seg button { border: 0; background: none; border-radius: 999px; padding: 5px 12px; font-weight: 700; font-size: .82rem; cursor: pointer; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--paper); color: var(--ink); box-shadow: var(--shadow); }
+input[type="text"], input[type="number"], select { border: 1px solid var(--line); background: var(--paper); border-radius: 10px; padding: 6px 9px; min-width: 0; }
+input[type="number"] { font-variant-numeric: tabular-nums; }
+
+/* calendar header */
+.cal-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.cal-title { flex: 1 1 220px; min-width: 0; }
+.cal-title h2 { font-size: 1.55rem; }
+.cal-title h2 small { font-family: var(--sans); font-size: .8rem; color: var(--muted); font-weight: 700; margin-left: 6px; letter-spacing: .06em; }
+.cal-sub { color: var(--muted); font-size: .85rem; }
+.jump { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.jump input { width: 86px; }
+
+.cal-body { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 14px; align-items: start; }
+.grid-wrap { overflow-x: auto; }
+.month-grid { display: grid; grid-template-columns: repeat(var(--cols), minmax(76px, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-width: calc(var(--cols) * 76px); }
+.wd { padding: 6px 8px; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; font-weight: 800; color: var(--muted); background: var(--soft); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cell { position: relative; min-height: 96px; padding: 6px 6px 8px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--paper); display: flex; flex-direction: column; gap: 3px; cursor: pointer; min-width: 0; }
+.cell:hover { background: color-mix(in srgb, var(--accent) 6%, var(--paper)); }
+.cell.spill { background: var(--soft); color: color-mix(in srgb, var(--muted) 70%, transparent); cursor: default; }
+.cell.sel { box-shadow: inset 0 0 0 2px var(--accent); }
+.cell.drop { background: color-mix(in srgb, var(--accent) 14%, var(--paper)); }
+.cell .n { display: flex; align-items: center; justify-content: space-between; gap: 4px; font-weight: 800; font-size: .82rem; font-variant-numeric: tabular-nums; }
+.cell.now .n b { background: var(--now); color: #2a1a08; border-radius: 999px; padding: 0 7px; }
+.cell.now::after { content: "Now"; position: absolute; right: 6px; bottom: 4px; font-size: .62rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--now); }
+.moon { font-size: .8rem; line-height: 1; opacity: .85; }
+.hol { font-size: .7rem; font-weight: 700; color: var(--accent); line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.season { font-size: .68rem; font-weight: 700; color: color-mix(in srgb, #4f9a6b 80%, var(--ink)); line-height: 1.2; }
+.chip { display: block; font-size: .72rem; font-weight: 700; padding: 2px 7px; border-radius: 7px; background: color-mix(in srgb, var(--c, var(--accent)) 16%, var(--paper)); border-left: 3px solid var(--c, var(--accent)); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: grab; }
+
+.side { display: grid; gap: 14px; }
+.side h3 { font-size: 1rem; margin-bottom: 8px; }
+.side p.hint { margin: 0 0 8px; color: var(--muted); font-size: .8rem; }
+.inbox { display: grid; gap: 6px; min-height: 40px; border-radius: 12px; }
+.inbox.drop { outline: 2px dashed var(--accent); outline-offset: 4px; }
+.inbox .chip { padding: 6px 9px; font-size: .8rem; white-space: normal; }
+.day-detail .big { font-family: var(--serif); font-size: 1.1rem; font-weight: 600; }
+.day-detail ul { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+.day-detail .meta { color: var(--muted); font-size: .82rem; }
+.day-detail .btns { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.year-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+.mini { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 10px; cursor: pointer; }
+.mini:hover { border-color: var(--accent); }
+.mini h4 { font-size: .92rem; margin-bottom: 6px; display: flex; justify-content: space-between; }
+.mini h4 span { font-family: var(--sans); font-size: .72rem; color: var(--muted); }
+.mini-grid { display: grid; grid-template-columns: repeat(var(--cols), 1fr); gap: 2px; font-size: .68rem; text-align: center; font-variant-numeric: tabular-nums; }
+.mini-grid i { font-style: normal; color: var(--muted); font-weight: 800; }
+.mini-grid span { border-radius: 5px; padding: 1px 0; }
+.mini-grid span.ev { background: color-mix(in srgb, var(--accent) 22%, transparent); font-weight: 800; }
+.mini-grid span.hol { color: var(--accent); font-weight: 800; }
+.mini-grid span.now { background: var(--now); color: #2a1a08; font-weight: 800; }
+
+/* setup */
+.setup { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 14px; align-items: start; }
+.setup-col { display: grid; gap: 14px; min-width: 0; }
+.sec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.sec-head h3 { font-size: 1.08rem; }
+.sec-head p { margin: 2px 0 0; color: var(--muted); font-size: .84rem; max-width: 62ch; }
+.presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.preset { text-align: left; border: 1px solid var(--line); border-radius: 14px; padding: 12px; background: var(--soft); cursor: pointer; display: grid; gap: 4px; }
+.preset b { font-family: var(--serif); font-size: .98rem; }
+.preset span { color: var(--muted); font-size: .8rem; line-height: 1.35; }
+.preset[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--paper); }
+.notice { margin-top: 10px; font-size: .82rem; color: var(--muted); background: var(--soft); border-radius: 10px; padding: 8px 10px; }
+.rows { display: grid; gap: 6px; }
+.row { display: grid; gap: 8px; align-items: center; }
+.months-row { grid-template-columns: 26px minmax(0, 1fr) 74px 92px 30px 30px 30px; }
+.eras-row { grid-template-columns: minmax(0, 1fr) 84px 130px 104px 118px 30px; }
+.hol-row { grid-template-columns: minmax(0, 1fr) 130px 64px 120px 30px; }
+.row-head { font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; font-weight: 800; color: var(--muted); }
+.row .num { color: var(--muted); font-weight: 800; font-size: .8rem; text-align: center; font-variant-numeric: tabular-nums; }
+.row input, .row select { width: 100%; }
+.mini-btn { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line); background: var(--soft); cursor: pointer; font-size: .85rem; display: grid; place-items: center; padding: 0; }
+.mini-btn:disabled { opacity: .35; cursor: default; }
+.radio { display: flex; align-items: center; gap: 6px; font-size: .86rem; font-weight: 600; cursor: pointer; }
+.leap-radio input[type="radio"] { accent-color: var(--accent); }
+.sum { margin-top: 10px; font-size: .84rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sum b { color: var(--ink); }
+.week-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.week-chips input { width: 112px; }
+.fieldline { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-top: 10px; font-size: .86rem; }
+.fieldline label { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+.switch { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: .86rem; }
+.switch input { accent-color: var(--accent); width: 16px; height: 16px; }
+.preview { position: sticky; top: 76px; display: grid; gap: 12px; }
+.preview .sample { font-family: var(--serif); font-size: 1.12rem; }
+.preview .formats { display: grid; gap: 6px; }
+.preview .formats label { display: flex; gap: 8px; align-items: flex-start; font-size: .86rem; cursor: pointer; }
+.preview .formats input { accent-color: var(--accent); margin-top: 4px; }
+.stat-line { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.stat-line div { background: var(--soft); border-radius: 10px; padding: 8px 10px; }
+.stat-line b { display: block; font-family: var(--serif); font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.stat-line span { font-size: .74rem; color: var(--muted); }
+
+/* notes */
+.notes { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; }
+.note-group { margin-bottom: 26px; }
+.note-group h2 { font-size: 1.25rem; margin-bottom: 6px; }
+.note-group > p { margin: 0 0 10px; color: var(--muted); max-width: 70ch; }
+.note { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; padding: 12px 0; border-top: 1px solid var(--line); }
+.note .k { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: .75rem; font-weight: 800; background: var(--soft); border: 1px solid var(--line); color: var(--accent); }
+.note h3 { font-family: var(--sans); font-size: .98rem; font-weight: 800; margin: 2px 0 2px; }
+.note p { margin: 0; color: var(--muted); max-width: 72ch; }
+code, pre { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: .8rem; }
+pre { background: var(--soft); border: 1px solid var(--line); border-radius: 12px; padding: 12px; overflow-x: auto; margin: 0; line-height: 1.45; }
+.aside { position: sticky; top: 76px; display: grid; gap: 12px; }
+.aside ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: .88rem; display: grid; gap: 4px; }
+
+.more { border: 1px solid var(--line); border-radius: 18px; background: var(--soft); }
+.more > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; }
+.more > summary::-webkit-details-marker { display: none; }
+.more > summary b { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; display: block; }
+.more-sub { color: var(--muted); font-size: .84rem; }
+.more-chev { font-size: 1.1rem; color: var(--muted); transition: transform .2s; }
+.more[open] .more-chev { transform: rotate(180deg); }
+.more-body { display: grid; gap: 14px; padding: 0 12px 12px; }
+@media (max-width: 1080px) {
+  .cal-body, .setup, .notes { grid-template-columns: minmax(0, 1fr); }
+  .preview, .aside { position: static; }
+}
+@media (max-width: 760px) {
+  .window { grid-template-columns: minmax(0, 1fr); }
+  .rail { display: none; }
+  .main { padding: 12px; }
+  .tabs { margin-left: 0; }
+  .months-row { grid-template-columns: 22px minmax(0, 1fr) 64px 30px 30px 30px; }
+  .months-row .leapcol { display: none; }
+  .eras-row, .hol-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .eras-row .row-x, .hol-row .row-x { justify-self: start; }
+  .rows .row-head.eras-row, .rows .row-head.hol-row { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="brand">StoryMaker <small>calendar mockup</small></div>
+    <nav class="tabs" aria-label="Mockup views">
+      <a href="#calendar" data-view="calendar">Calendar</a>
+      <a href="#setup" data-view="setup">Set up time</a>
+      <a href="#notes" data-view="notes">What changes</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ============ CALENDAR ============ -->
+<section class="view" id="view-calendar">
+  <div class="wrap">
+    <div class="lede">
+      <div>
+        <h1>The Calendar room</h1>
+        <p>Starts on the calendar we live by. Drag a thread from the inbox onto a day, click a day to see it, or switch to Year. Everything here is driven by the setup on the next tab.</p>
+      </div>
+    </div>
+    <div class="window">
+      <aside class="rail" aria-hidden="true">
+        <a href="#calendar">Home</a>
+        <span class="g">Write</span><a href="#calendar">Hearth</a><a href="#calendar">Storybook</a>
+        <span class="g">World</span><a href="#calendar">People</a><a href="#calendar">Lore</a><a href="#calendar">Bonds</a><a href="#calendar">Vision</a>
+        <span class="g">Time</span><a href="#calendar">Threads</a><a class="on" href="#calendar">Calendar</a>
+      </aside>
+      <div class="main">
+        <div class="card cal-head">
+          <div class="cal-title">
+            <p class="eyebrow" id="calEra">Common Era</p>
+            <h2 id="calTitle">November 2026</h2>
+            <div class="cal-sub" id="calSub"></div>
+          </div>
+          <div class="jump">
+            <button class="btn icon" id="prev" aria-label="Previous">‹</button>
+            <button class="btn" id="toNow">Now in the story</button>
+            <button class="btn icon" id="next" aria-label="Next">›</button>
+          </div>
+          <div class="jump">
+            <select id="jumpMonth" aria-label="Month"></select>
+            <input type="number" id="jumpYear" aria-label="Year">
+            <select id="jumpEra" aria-label="Era"></select>
+          </div>
+          <div class="seg" role="group" aria-label="View">
+            <button id="modeMonth" aria-pressed="true">Month</button>
+            <button id="modeYear" aria-pressed="false">Year</button>
+          </div>
+          <a class="btn" href="#setup">⚙ Set up time</a>
+        </div>
+
+        <div class="cal-body">
+          <div class="card" id="calCard">
+            <div class="grid-wrap" id="calGrid"></div>
+          </div>
+          <div class="side">
+            <div class="card day-detail" id="dayDetail"></div>
+            <div class="card">
+              <h3>Not on the calendar yet</h3>
+              <p class="hint">Threads without a date wait here. Drag one onto a day. Drag a dated thread back here to unschedule it.</p>
+              <div class="inbox" id="inbox"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SETUP ============ -->
+<section class="view" id="view-setup" hidden>
+  <div class="wrap">
+    <div class="lede">
+      <div>
+        <h1>Set up time, your way</h1>
+        <p>One page that defines how time works in this story. It starts as the Gregorian calendar. Pick another starting point, or change any part. The preview and the Calendar tab update as you type.</p>
+      </div>
+    </div>
+    <div class="window">
+      <aside class="rail" aria-hidden="true">
+        <a href="#setup">Home</a>
+        <span class="g">Write</span><a href="#setup">Hearth</a><a href="#setup">Storybook</a>
+        <span class="g">World</span><a href="#setup">People</a><a href="#setup">Lore</a><a href="#setup">Bonds</a><a href="#setup">Vision</a>
+        <span class="g">Time</span><a href="#setup">Threads</a><a class="on" href="#setup">Calendar</a>
+      </aside>
+      <div class="main">
+        <div class="setup">
+          <div class="setup-col">
+            <section class="card">
+              <div class="sec-head"><div><h3>Start from</h3><p>Replaces the months, week, leap years, eras and holidays. Your threads keep their dates.</p></div></div>
+              <div class="presets" id="presets"></div>
+              <div class="notice" id="presetNote" hidden></div>
+            </section>
+
+            <section class="card">
+              <div class="sec-head"><div><h3>When is "now" in the story?</h3><p>The Calendar opens here, Home shows threads from this year, and the Storybook title page prints this date.</p></div></div>
+              <div class="fieldline">
+                <label>Day <input type="number" id="nowDay" min="1" style="width:70px"></label>
+                <label>Month <select id="nowMonth"></select></label>
+                <label>Year <input type="number" id="nowYear" style="width:90px"></label>
+                <select id="nowEra" aria-label="Era of the story year"></select>
+              </div>
+            </section>
+
+            <section class="card">
+              <div class="sec-head"><div><h3>Eras</h3><p>How years are counted and named. One era can count down, like BCE, for the years before the first one. Add another when something resets the count: a founding, a war, a flood.</p></div><button class="btn" id="addEra">Add an era</button></div>
+              <div class="rows" id="eras"></div>
+              <div class="fieldline"><label class="switch"><input type="checkbox" id="showEra"> Show the era on dates</label></div>
+            </section>
+
+            <section class="card">
+              <div class="sec-head"><div><h3>Months</h3><p>Rename, reorder, add or remove months, and set their lengths. The leap column picks which month gets the extra day.</p></div><button class="btn" id="addMonth">Add a month</button></div>
+              <div class="rows" id="months"></div>
+              <div class="sum" id="monthSum"></div>
+            </section>
+
+            <details class="more" id="more">
+              <summary><span><b>More options</b><span class="more-sub">Leap years, the week, seasons and holidays, moons</span></span><span class="more-chev" aria-hidden="true">▾</span></summary>
+              <div class="more-body">
+            <section class="card">
+              <div class="sec-head"><div><h3>Leap years</h3><p>When the extra day appears.</p></div></div>
+              <div class="fieldline leap-radio" id="leapRadios">
+                <label class="radio"><input type="radio" name="leap" value="gregorian"> Every 4 years, skipping centuries not divisible by 400</label>
+                <label class="radio"><input type="radio" name="leap" value="every"> Every <input type="number" id="leapEvery" min="2" style="width:64px"> years</label>
+                <label class="radio"><input type="radio" name="leap" value="none"> No leap years</label>
+              </div>
+            </section>
+
+            <section class="card">
+              <div class="sec-head"><div><h3>Week</h3><p>The day names set how long a week is. Add or remove days to change it.</p></div><div style="display:flex;gap:6px"><button class="btn" id="addWeekday">Add a day</button><button class="btn" id="removeWeekday">Remove last</button></div></div>
+              <div class="week-chips" id="weekdays"></div>
+              <div class="fieldline">
+                <label>Weeks start on <select id="weekStart"></select></label>
+                <label>Year 1, day 1 fell on <select id="epochDay"></select></label>
+              </div>
+            </section>
+
+            <section class="card">
+              <div class="sec-head"><div><h3>Seasons and holidays</h3><p>Dates that come back every year. Seasons label the stretch until the next one begins.</p></div><button class="btn" id="addHoliday">Add a date</button></div>
+              <div class="rows" id="holidays"></div>
+            </section>
+
+            <section class="card">
+              <div class="sec-head"><div><h3>Moons</h3><p>Optional. Phases show in the corner of each day.</p></div><label class="switch"><input type="checkbox" id="moonOn"> Show moon phases</label></div>
+              <div class="fieldline" id="moonFields">
+                <label>Name <input type="text" id="moonName" style="width:140px"></label>
+                <label>Cycle <input type="number" id="moonCycle" step="0.01" min="2" style="width:84px"> days</label>
+                <label>A new moon fell on <select id="moonM"></select> <input type="number" id="moonD" min="1" style="width:60px"> <input type="number" id="moonY" style="width:80px"></label>
+              </div>
+            </section>
+              </div>
+            </details>
+          </div>
+
+          <aside class="preview">
+            <div class="card">
+              <p class="eyebrow">Now in the story reads</p>
+              <div class="sample" id="sampleDate"></div>
+              <div class="formats" id="formats" style="margin-top:10px"></div>
+            </div>
+            <div class="card">
+              <p class="eyebrow">Preview</p>
+              <div id="previewMini"></div>
+            </div>
+            <div class="card">
+              <div class="stat-line">
+                <div><b id="stYear">365</b><span>days in a year</span></div>
+                <div><b id="stLeap">366</b><span>in a leap year</span></div>
+                <div><b id="stMonths">12</b><span>months</span></div>
+                <div><b id="stWeek">7</b><span>days in a week</span></div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ NOTES ============ -->
+<section class="view" id="view-notes" hidden>
+  <div class="wrap">
+    <div class="lede"><div><h1>What changes, and why</h1><p>Today the calendar is "Tideglass Year 418" with ten invented months, and there is no place to rename the era, change the year, or set weekdays. This rethink moves all of that into one setup page and starts every new story on the Gregorian calendar.</p></div></div>
+    <div class="notes">
+      <div>
+        <div class="note-group">
+          <h2>For the writer</h2>
+          <div class="note"><span class="k">1</span><div><h3>Gregorian by default</h3><p>New stories start on January to December, the 7-day week, Gregorian leap years, CE/BCE, and today's date as "now". Nothing fantasy-flavored until you choose it.</p></div></div>
+          <div class="note"><span class="k">2</span><div><h3>Presets as starting points</h3><p>Gregorian (the default), Gregorian with your own names, the Thai solar calendar (same months and leap years, Thai names, years in the Buddhist Era: 2026 CE is 2569 BE), and Blank. A preset only replaces the structure. Threads keep their dates.</p></div></div>
+          <div class="note"><span class="k">3</span><div><h3>"Now in the story"</h3><p>One date that the Calendar opens on and that Home, the Storybook title page and the AI context all use. It replaces the bare <code>year</code> number.</p></div></div>
+          <div class="note"><span class="k">4</span><div><h3>Eras you can name and add</h3><p>An era has a name, a short form, whether the short form goes before or after the number, the year it starts, and whether it counts up or down. That covers CE/BCE, the Thai "พ.ศ. 2569", "Third Age 3019", or a count that restarts after a cataclysm.</p></div></div>
+          <div class="note"><span class="k">5</span><div><h3>A short setup page, with more when you want it</h3><p>The page shows the starting point, "now", eras and months. Leap years, the week, seasons and holidays, and moons sit under More options. Their defaults: Sunday to Saturday, the Gregorian leap rule, equinoxes and solstices, New Year's Day, and one moon with a 29.53-day cycle.</p></div></div>
+          <div class="note"><span class="k">6</span><div><h3>An inbox for undated threads</h3><p>Borrowed from Forge Tales. A thread without a date waits beside the calendar until you drag it onto a day, so plotting doesn't require knowing the date first.</p></div></div>
+          <div class="note"><span class="k">7</span><div><h3>Month and Year views, and a jump</h3><p>Pick a month and type a year to go there directly. Year view shows every month at once with thread days marked.</p></div></div>
+          <div class="note"><span class="k">8</span><div><h3>Date formats</h3><p>Choose how dates read across the app: "Wednesday, 25 November 2026", "November 25, 2026", "25 Nov 2026 CE" or "25/11/2026".</p></div></div>
+        </div>
+        <div class="note-group">
+          <h2>For the code</h2>
+          <p>The calendar becomes one object on the project. <code>eraName</code>, <code>year</code> and <code>months</code> move inside it. Threads keep <code>year/monthIndex/day</code>, but <code>year</code> is now a continuous timeline year (year 1 of the first counting-up era is 1; the year before is 0).</p>
+<pre>calendar: {
+  months:   [{ id, name, days }],
+  leapMonthId: "m-feb" | null,
+  leap:     { kind: "gregorian" | "every" | "none", every: 4 },
+  weekdays: ["Sunday", …],          // length = days per week
+  weekStart: 0,                      // index into weekdays
+  epochWeekday: 1,                   // weekday of year 1, month 1, day 1
+  eras:     [{ id, name, short, place: "before" | "after", start: 1, counts: "up" | "down" }],
+  now:      { year: 2026, monthIndex: 10, day: 25 },
+  holidays: [{ id, name, monthIndex, day, kind: "holiday" | "season" }],
+  moons:    [{ id, name, cycle: 29.53, newMoon: { year, monthIndex, day } }],
+  format:   "long" | "us" | "short-era" | "numeric",
+}
+ThreadEvent: { …, year?: number, monthIndex?: number, day?: number }  // no date = inbox</pre>
+          <div class="note" style="margin-top:12px"><span class="k">A</span><div><h3>Migration</h3><p><code>normalize.ts</code> turns an old project's <code>eraName/year/months</code> into a calendar with one counting-up era named after <code>eraName</code>, no weekdays shown, no leap years, and "now" on day 1 of the first month of <code>year</code>. Existing stories, Lantern and Tide included, keep their own months and era as a custom calendar. New books get Gregorian.</p></div></div>
+          <div class="note"><span class="k">B</span><div><h3>One date helper</h3><p>A small <code>lib/calendar.ts</code> holds <code>daysInYear</code>, <code>dayNumber</code>, <code>weekday</code>, <code>formatDate</code> and <code>moonPhase</code>. The Calendar, Threads, Home timeline, Storybook and AI prompts all format dates through it, so a change in setup shows everywhere. The mockup's script is a working draft of it.</p></div></div>
+          <div class="note"><span class="k">C</span><div><h3>Obsidian vault</h3><p><code>Calendar.md</code> gains the eras, weekdays, leap rule and holidays in its frontmatter, and threads write their date in the chosen format plus a sortable timeline key.</p></div></div>
+        </div>
+      </div>
+      <aside class="aside">
+        <div class="card"><h3>Taken from Forge Tales</h3><ul><li>Real-world presets (Gregorian; we add Thai) plus build-your-own</li><li>Eras that reset the year count</li><li>Days per week you choose</li><li>Moons, seasons and holidays on the grid</li><li>An inbox of undated plot events</li></ul></div>
+        <div class="card"><h3>Left out for now</h3><ul><li>Climate presets and daily weather</li><li>Multi-day events (a later step)</li><li>Several calendars in one story</li></ul></div>
+        <div class="card"><h3>Build order</h3><ul><li><code>lib/calendar.ts</code> and the migration</li><li>Set up time page</li><li>Calendar Month and Year views and the inbox</li><li>Switch Threads, Home, Storybook and AI to the shared formatter</li></ul></div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const mod = (a, n) => ((a % n) + n) % n;
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  let uidN = 0; const uid = p => p + "-" + (++uidN);
+
+  /* ---------- presets ---------- */
+  const GREG_MONTHS = [["January",31],["February",28],["March",31],["April",30],["May",31],["June",30],["July",31],["August",31],["September",30],["October",31],["November",30],["December",31]];
+  const WEEK = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const GREG_HOLIDAYS = [["New Year's Day",0,1,"holiday"],["Spring",2,20,"season"],["Summer",5,21,"season"],["Autumn",8,22,"season"],["Winter",11,21,"season"]];
+  const today = new Date();
+  const presets = {
+    gregorian: {
+      label: "Gregorian", desc: "January to December, 7-day week, leap years, CE and BCE. The default.",
+      build: () => ({
+        months: GREG_MONTHS.map(([n, d]) => ({ id: uid("m"), name: n, days: d })), leapMonth: 1,
+        leap: { kind: "gregorian", every: 4 }, weekdays: [...WEEK], weekStart: 0, epochWeekday: 1,
+        eras: [{ id: uid("e"), name: "Before Common Era", short: "BCE", place: "after", start: 0, counts: "down" }, { id: uid("e"), name: "Common Era", short: "CE", place: "after", start: 1, counts: "up" }],
+        showEra: false,
+        now: { y: today.getFullYear(), m: today.getMonth(), d: today.getDate() },
+        holidays: GREG_HOLIDAYS.map(([n, m, d, k]) => ({ id: uid("h"), name: n, m, d, kind: k })),
+        moon: { on: true, name: "The Moon", cycle: 29.53, y: 2000, m: 0, d: 6 }, format: "long",
+      }),
+    },
+    renamed: {
+      label: "Gregorian, your names", desc: "Same lengths, weeks and leap years. Rename months and days to suit your world.",
+      build: () => { const c = presets.gregorian.build(); c.months.forEach((m, i) => { m.name = ["Frostmonth","Thawmonth","Seedmonth","Rainmonth","Bloommonth","Sunmonth","Haymonth","Harvestmonth","Fruitmonth","Leafmonth","Mistmonth","Hearthmonth"][i]; }); c.eras = [{ id: uid("e"), name: "Before the Crown", short: "BC", place: "after", start: 0, counts: "down" }, { id: uid("e"), name: "Year of the Crown", short: "YC", place: "after", start: 1, counts: "up" }]; c.now = { y: 1042, m: 9, d: 3 }; c.showEra = true; return c; },
+    },
+    thai: {
+      label: "Thai solar calendar", desc: "Gregorian months and leap years, Thai names, years in the Buddhist Era (2026 CE is 2569 BE).",
+      build: () => {
+        const c = presets.gregorian.build();
+        ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"].forEach((n, i) => { c.months[i].name = n; c.months[i].short = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."][i]; });
+        c.weekdays = ["วันอาทิตย์","วันจันทร์","วันอังคาร","วันพุธ","วันพฤหัสบดี","วันศุกร์","วันเสาร์"];
+        c.eras = [{ id: uid("e"), name: "Before the Buddhist Era", short: "ก่อน พ.ศ.", place: "before", start: 0, counts: "down" }, { id: uid("e"), name: "Buddhist Era", short: "พ.ศ.", place: "before", start: -542, counts: "up" }];
+        c.showEra = true;
+        c.holidays = [["วันขึ้นปีใหม่ (New Year's Day)",0,1,"holiday"],["วันจักรี (Chakri Day)",3,6,"holiday"],["สงกรานต์ (Songkran)",3,13,"holiday"],["วันแม่ (Mother's Day)",7,12,"holiday"],["วันพ่อ (Father's Day)",11,5,"holiday"],["วันรัฐธรรมนูญ (Constitution Day)",11,10,"holiday"],["Hot season",1,15,"season"],["Rainy season",4,15,"season"],["Cool season",9,15,"season"]].map(([n, m, d, k]) => ({ id: uid("h"), name: n, m, d, kind: k }));
+        c.moon.name = "พระจันทร์ (Moon)";
+        return c;
+      },
+    },
+    blank: {
+      label: "Blank", desc: "One month, one era, a 7-day week. Build it from the ground up.",
+      build: () => ({ months: [{ id: uid("m"), name: "First month", days: 30 }], leapMonth: null, leap: { kind: "none", every: 4 }, weekdays: [...WEEK], weekStart: 0, epochWeekday: 0, eras: [{ id: uid("e"), name: "Year", short: "Y", place: "after", start: 1, counts: "up" }], showEra: false, now: { y: 1, m: 0, d: 1 }, holidays: [], moon: { on: false, name: "Moon", cycle: 28, y: 1, m: 0, d: 1 }, format: "long" }),
+    },
+  };
+
+  let cal = presets.gregorian.build();
+  let currentPreset = "gregorian";
+
+  /* sample threads (from the sample story), dated around "now" */
+  const COLORS = ["#d06a32", "#5d7fb8", "#4f9a6b", "#a8455f", "#8a6ab8"];
+  function sampleThreads() {
+    const n = cal.now;
+    return [
+      { id: uid("t"), title: "The chart goes missing", who: "Mira, Pio", c: COLORS[0], date: { y: n.y, m: n.m, d: Math.max(1, n.d - 9) } },
+      { id: uid("t"), title: "Bread and logbooks", who: "Mira, Bram", c: COLORS[1], date: { y: n.y, m: n.m, d: Math.max(1, n.d - 3) } },
+      { id: uid("t"), title: "Pio hears the shoal", who: "Pio", c: COLORS[2], date: { y: n.y, m: n.m, d: Math.min(monthDays(n.y, n.m), n.d + 4) } },
+      { id: uid("t"), title: "Sera visits the pier", who: "Sera", c: COLORS[3], date: null },
+      { id: uid("t"), title: "The lamp goes dark", who: "Bram", c: COLORS[4], date: null },
+    ];
+  }
+
+  /* ---------- the calendar engine (a draft of lib/calendar.ts) ---------- */
+  function isLeap(y) {
+    if (cal.leapMonth == null) return false;
+    if (cal.leap.kind === "gregorian") return mod(y, 4) === 0 && (mod(y, 100) !== 0 || mod(y, 400) === 0);
+    if (cal.leap.kind === "every") return mod(y, Math.max(2, cal.leap.every | 0)) === 0;
+    return false;
+  }
+  function leapsUpTo(n) { // leap years in 1..n (negative n counts years n+1..0 negatively)
+    if (cal.leapMonth == null || cal.leap.kind === "none") return 0;
+    if (cal.leap.kind === "gregorian") return Math.floor(n / 4) - Math.floor(n / 100) + Math.floor(n / 400);
+    return Math.floor(n / Math.max(2, cal.leap.every | 0));
+  }
+  const baseYear = () => cal.months.reduce((s, m) => s + m.days, 0);
+  function monthDays(y, m) { const mo = cal.months[m]; if (!mo) return 30; return mo.days + (isLeap(y) && cal.leapMonth === m ? 1 : 0); }
+  function dayNumber(y, m, d) {
+    let n = (y - 1) * baseYear() + leapsUpTo(y - 1);
+    for (let i = 0; i < m; i++) n += monthDays(y, i);
+    return n + d - 1;
+  }
+  const weekday = (y, m, d) => mod(cal.epochWeekday + dayNumber(y, m, d), cal.weekdays.length);
+  function eraFor(y) {
+    const ups = cal.eras.filter(e => e.counts === "up").sort((a, b) => a.start - b.start);
+    const firstUp = ups[0];
+    if (!firstUp) return { era: null, shown: y };
+    if (y < firstUp.start) {
+      const down = cal.eras.find(e => e.counts === "down");
+      return down ? { era: down, shown: firstUp.start - y } : { era: firstUp, shown: y - firstUp.start + 1 };
+    }
+    let era = firstUp; for (const e of ups) if (y >= e.start) era = e;
+    return { era, shown: y - era.start + 1 };
+  }
+  function toTimelineYear(shown, eraId) {
+    const era = cal.eras.find(e => e.id === eraId);
+    const firstUp = cal.eras.filter(e => e.counts === "up").sort((a, b) => a.start - b.start)[0];
+    if (!era) return shown;
+    if (era.counts === "down") return (firstUp ? firstUp.start : 1) - shown;
+    return era.start + shown - 1;
+  }
+  function yearLabel(y, withEra) {
+    const { era, shown } = eraFor(y);
+    const needs = withEra || cal.showEra || (era && era.counts === "down");
+    if (!needs || !era) return String(shown);
+    return era.place === "before" ? `${era.short} ${shown}` : `${shown} ${era.short}`;
+  }
+  function formatDate(y, m, d, style = cal.format) {
+    const mo = cal.months[m]?.name ?? "?";
+    const wd = cal.weekdays.length ? cal.weekdays[weekday(y, m, d)] : "";
+    if (style === "us") return `${mo} ${d}, ${yearLabel(y)}`;
+    if (style === "short-era") return `${d} ${cal.months[m]?.short || mo.slice(0, 3)} ${yearLabel(y, true)}`;
+    if (style === "numeric") { const { shown } = eraFor(y); return `${String(d).padStart(2, "0")}/${String(m + 1).padStart(2, "0")}/${shown}`; }
+    return `${wd ? wd + ", " : ""}${d} ${mo} ${yearLabel(y)}`;
+  }
+  const PHASES = ["🌑","🌒","🌓","🌔","🌕","🌖","🌗","🌘"];
+  const PHASE_NAMES = ["New moon","Waxing crescent","First quarter","Waxing gibbous","Full moon","Waning gibbous","Last quarter","Waning crescent"];
+  function moonAge(y, m, d) { const ref = dayNumber(cal.moon.y, Math.min(cal.moon.m, cal.months.length - 1), cal.moon.d); return mod(dayNumber(y, m, d) - ref, cal.moon.cycle) / cal.moon.cycle; }
+  const phaseIndex = a => mod(Math.round(a * 8), 8);
+  function moonMark(y, m, d) {
+    if (!cal.moon.on || cal.moon.cycle < 2) return null;
+    const a = moonAge(y, m, d), q = Math.floor(a * 4) % 4;
+    const prev = d > 1 ? moonAge(y, m, d - 1) : moonAge(y, m, d) - 1 / cal.moon.cycle;
+    const qp = Math.floor(mod(prev, 1) * 4) % 4;
+    if (q === qp) return null;
+    return { icon: PHASES[q * 2], name: PHASE_NAMES[q * 2] };
+  }
+  const holidaysOn = (m, d) => cal.holidays.filter(h => h.m === m && h.d === d);
+  function seasonAt(y, m, d) {
+    const seasons = cal.holidays.filter(h => h.kind === "season").sort((a, b) => a.m - b.m || a.d - b.d);
+    if (!seasons.length) return null;
+    let s = seasons[seasons.length - 1];
+    for (const x of seasons) if (x.m < m || (x.m === m && x.d <= d)) s = x;
+    return s.name;
+  }
+
+  /* ---------- view state ---------- */
+  let threads = sampleThreads();
+  let view = { y: cal.now.y, m: cal.now.m }, mode = "month";
+  let selected = { ...cal.now };
+
+  const sameDay = (a, b) => a && b && a.y === b.y && a.m === b.m && a.d === b.d;
+
+  function yearHtml(y) {
+    const { era, shown } = eraFor(y);
+    if (!era) return esc(shown);
+    return era.place === "before" ? `<small style="margin:0 6px 0 0">${esc(era.short)}</small>${esc(shown)}` : `${esc(shown)} <small>${esc(era.short)}</small>`;
+  }
+  function renderCalendar() {
+    view.m = Math.min(view.m, cal.months.length - 1);
+    const { era } = eraFor(view.y);
+    $("calEra").textContent = era ? era.name : "";
+    $("calTitle").innerHTML = mode === "month"
+      ? `${esc(cal.months[view.m].name)} ${yearHtml(view.y)}`
+      : yearHtml(view.y);
+    const s = seasonAt(view.y, view.m, 1);
+    $("calSub").textContent = mode === "month" ? `${monthDays(view.y, view.m)} days${s ? ` · ${s}` : ""}${isLeap(view.y) ? " · leap year" : ""}` : `${baseYear() + (isLeap(view.y) ? 1 : 0)} days${isLeap(view.y) ? " · leap year" : ""}`;
+    $("jumpMonth").innerHTML = cal.months.map((m, i) => `<option value="${i}"${i === view.m ? " selected" : ""}>${esc(m.name)}</option>`).join("");
+    $("jumpMonth").disabled = mode === "year";
+    const er = eraFor(view.y);
+    $("jumpYear").value = er.shown;
+    $("jumpEra").innerHTML = cal.eras.map(e => `<option value="${e.id}"${er.era && e.id === er.era.id ? " selected" : ""}>${esc(e.short)}</option>`).join("");
+    $("jumpEra").hidden = cal.eras.length < 2;
+    $("modeMonth").setAttribute("aria-pressed", String(mode === "month"));
+    $("modeYear").setAttribute("aria-pressed", String(mode === "year"));
+    $("calGrid").innerHTML = mode === "month" ? monthGrid(view.y, view.m) : yearGrid(view.y);
+    renderDetail();
+    renderInbox();
+  }
+
+  function monthGrid(y, m) {
+    const cols = Math.max(1, cal.weekdays.length);
+    const order = Array.from({ length: cols }, (_, i) => cal.weekdays[mod(cal.weekStart + i, cols)]);
+    const lead = mod(weekday(y, m, 1) - cal.weekStart, cols);
+    const pm = m === 0 ? { y: y - 1, m: cal.months.length - 1 } : { y, m: m - 1 };
+    const pDays = monthDays(pm.y, pm.m);
+    let html = `<div class="month-grid" style="--cols:${cols}">` + order.map(w => `<div class="wd" title="${esc(w)}">${esc(w)}</div>`).join("");
+    for (let i = 0; i < lead; i++) html += `<div class="cell spill"><div class="n"><b>${pDays - lead + i + 1}</b></div></div>`;
+    const days = monthDays(y, m);
+    for (let d = 1; d <= days; d++) {
+      const date = { y, m, d };
+      const evs = threads.filter(t => sameDay(t.date, date));
+      const hol = holidaysOn(m, d);
+      const moon = moonMark(y, m, d);
+      const cls = ["cell", sameDay(cal.now, date) ? "now" : "", sameDay(selected, date) ? "sel" : ""].join(" ");
+      html += `<div class="${cls}" data-y="${y}" data-m="${m}" data-d="${d}" tabindex="0" role="button" aria-label="${esc(formatDate(y, m, d))}">
+        <div class="n"><b>${d}</b>${moon ? `<span class="moon" title="${moon.name}">${moon.icon}</span>` : ""}</div>
+        ${hol.map(h => `<span class="${h.kind === "season" ? "season" : "hol"}">${h.kind === "season" ? "◆ " : ""}${esc(h.name)}</span>`).join("")}
+        ${evs.map(t => `<span class="chip" draggable="true" data-t="${t.id}" style="--c:${t.c}">${esc(t.title)}</span>`).join("")}
+      </div>`;
+    }
+    const total = lead + days, trail = mod(cols - mod(total, cols), cols);
+    for (let i = 1; i <= trail; i++) html += `<div class="cell spill"><div class="n"><b>${i}</b></div></div>`;
+    return html + "</div>";
+  }
+
+  function yearGrid(y) {
+    const cols = Math.max(1, cal.weekdays.length);
+    return `<div class="year-grid">` + cal.months.map((mo, m) => {
+      const lead = mod(weekday(y, m, 1) - cal.weekStart, cols);
+      let cells = Array.from({ length: cols }, (_, i) => `<i>${esc((cal.weekdays[mod(cal.weekStart + i, cols)] || "?").slice(0, 2))}</i>`).join("");
+      cells += "<span></span>".repeat(lead);
+      for (let d = 1; d <= monthDays(y, m); d++) {
+        const date = { y, m, d };
+        const c = sameDay(cal.now, date) ? "now" : threads.some(t => sameDay(t.date, date)) ? "ev" : holidaysOn(m, d).some(h => h.kind === "holiday") ? "hol" : "";
+        cells += `<span class="${c}">${d}</span>`;
+      }
+      const count = threads.filter(t => t.date && t.date.y === y && t.date.m === m).length;
+      return `<div class="mini" data-goto="${m}" tabindex="0" role="button"><h4>${esc(mo.name)}<span>${count ? count + (count === 1 ? " thread" : " threads") : ""}</span></h4><div class="mini-grid" style="--cols:${cols}">${cells}</div></div>`;
+    }).join("") + "</div>";
+  }
+
+  function renderDetail() {
+    const { y, m, d } = selected;
+    if (m >= cal.months.length || d > monthDays(y, m)) { selected = { ...cal.now }; }
+    const s = selected;
+    const evs = threads.filter(t => sameDay(t.date, s));
+    const hol = holidaysOn(s.m, s.d);
+    const season = seasonAt(s.y, s.m, s.d);
+    const phase = cal.moon.on ? PHASE_NAMES[phaseIndex(moonAge(s.y, s.m, s.d))] : null;
+    $("dayDetail").innerHTML = `
+      <p class="eyebrow">${sameDay(s, cal.now) ? "Now in the story" : "Selected day"}</p>
+      <div class="big">${esc(formatDate(s.y, s.m, s.d))}</div>
+      <div class="meta">${[season, ...hol.filter(h => h.kind === "holiday").map(h => h.name), phase ? `${cal.moon.name}: ${phase.toLowerCase()}` : null].filter(Boolean).map(esc).join(" · ")}</div>
+      <ul>${evs.length ? evs.map(t => `<li><span class="chip" draggable="true" data-t="${t.id}" style="--c:${t.c}">${esc(t.title)} · <span style="font-weight:600">${esc(t.who)}</span></span></li>`).join("") : `<li class="meta">No threads on this day.</li>`}</ul>
+      <div class="btns"><button class="btn primary" id="addHere">Add a thread here</button>${sameDay(s, cal.now) ? "" : `<button class="btn" id="makeNow">Make this "now"</button>`}</div>`;
+  }
+
+  function renderInbox() {
+    const undated = threads.filter(t => !t.date);
+    $("inbox").innerHTML = undated.length ? undated.map(t => `<span class="chip" draggable="true" data-t="${t.id}" style="--c:${t.c}">${esc(t.title)}<br><span style="font-weight:600;color:var(--muted)">${esc(t.who)}</span></span>`).join("") : `<p class="hint" style="margin:0">Everything has a date.</p>`;
+  }
+
+  /* calendar interactions */
+  $("calGrid").addEventListener("click", e => {
+    const mini = e.target.closest("[data-goto]");
+    if (mini) { view.m = +mini.dataset.goto; mode = "month"; renderCalendar(); return; }
+    const cell = e.target.closest(".cell[data-d]");
+    if (cell) { selected = { y: +cell.dataset.y, m: +cell.dataset.m, d: +cell.dataset.d }; renderCalendar(); }
+  });
+  $("calGrid").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches("[data-d],[data-goto]")) { e.preventDefault(); e.target.click(); } });
+  $("dayDetail").addEventListener("click", e => {
+    if (e.target.id === "addHere") { threads.push({ id: uid("t"), title: "New thread", who: "No one yet", c: COLORS[threads.length % COLORS.length], date: { ...selected } }); renderCalendar(); }
+    if (e.target.id === "makeNow") { cal.now = { ...selected }; renderAll(); }
+  });
+  let dragId = null;
+  document.addEventListener("dragstart", e => { const c = e.target.closest && e.target.closest("[data-t]"); if (c) { dragId = c.dataset.t; e.dataTransfer.setData("text/plain", dragId); e.dataTransfer.effectAllowed = "move"; } });
+  document.addEventListener("dragend", () => { dragId = null; document.querySelectorAll(".drop").forEach(n => n.classList.remove("drop")); });
+  function dropZone(el) { return el.closest && (el.closest(".cell[data-d]") || el.closest("#inbox")); }
+  document.addEventListener("dragover", e => { const z = dragId && dropZone(e.target); if (z) { e.preventDefault(); document.querySelectorAll(".drop").forEach(n => n !== z && n.classList.remove("drop")); z.classList.add("drop"); } });
+  document.addEventListener("drop", e => {
+    const z = dragId && dropZone(e.target); if (!z) return; e.preventDefault();
+    const t = threads.find(x => x.id === dragId); if (!t) return;
+    t.date = z.id === "inbox" ? null : { y: +z.dataset.y, m: +z.dataset.m, d: +z.dataset.d };
+    if (t.date) selected = { ...t.date };
+    dragId = null; renderCalendar();
+  });
+  function step(dir) {
+    if (mode === "year") { view.y += dir; }
+    else { view.m += dir; if (view.m < 0) { view.m = cal.months.length - 1; view.y--; } if (view.m >= cal.months.length) { view.m = 0; view.y++; } }
+    renderCalendar();
+  }
+  $("prev").addEventListener("click", () => step(-1));
+  $("next").addEventListener("click", () => step(1));
+  $("toNow").addEventListener("click", () => { view = { y: cal.now.y, m: cal.now.m }; selected = { ...cal.now }; renderCalendar(); });
+  $("jumpMonth").addEventListener("change", e => { view.m = +e.target.value; renderCalendar(); });
+  const jumpYear = () => { const v = parseInt($("jumpYear").value, 10); if (!Number.isFinite(v)) return; view.y = toTimelineYear(Math.max(1, v), $("jumpEra").value); renderCalendar(); };
+  $("jumpYear").addEventListener("change", jumpYear);
+  $("jumpEra").addEventListener("change", jumpYear);
+  $("modeMonth").addEventListener("click", () => { mode = "month"; renderCalendar(); });
+  $("modeYear").addEventListener("click", () => { mode = "year"; renderCalendar(); });
+
+  /* ---------- setup page ---------- */
+  function renderPresets() {
+    $("presets").innerHTML = Object.entries(presets).map(([k, p]) => `<button class="preset" data-p="${k}" aria-pressed="${k === currentPreset}"><b>${esc(p.label)}</b><span>${esc(p.desc)}</span></button>`).join("");
+  }
+  $("presets").addEventListener("click", e => {
+    const b = e.target.closest("[data-p]"); if (!b) return;
+    currentPreset = b.dataset.p;
+    const kept = threads;
+    cal = presets[currentPreset].build();
+    threads = currentPreset === "gregorian" && kept.every(t => !t.date || t.date.y > 1500) ? kept : sampleThreads();
+    view = { y: cal.now.y, m: cal.now.m }; selected = { ...cal.now };
+    $("presetNote").hidden = false;
+    $("presetNote").textContent = `Switched to ${presets[currentPreset].label}. In the app your threads keep their day, month position and year. This mockup re-dates its sample threads around the new "now".`;
+    renderAll();
+  });
+
+  const monthOptions = sel => cal.months.map((m, i) => `<option value="${i}"${i === sel ? " selected" : ""}>${esc(m.name)}</option>`).join("");
+  const eraOptions = sel => cal.eras.map(e => `<option value="${e.id}"${e.id === sel ? " selected" : ""}>${esc(e.short || e.name)}</option>`).join("");
+
+  function renderSetup() {
+    renderPresets();
+    const ne = eraFor(cal.now.y);
+    $("nowDay").value = cal.now.d; $("nowDay").max = monthDays(cal.now.y, cal.now.m);
+    $("nowMonth").innerHTML = monthOptions(cal.now.m);
+    $("nowYear").value = ne.shown;
+    $("nowEra").innerHTML = eraOptions(ne.era?.id); $("nowEra").hidden = cal.eras.length < 2;
+
+    $("eras").innerHTML = `<div class="row eras-row row-head"><span>Name</span><span>Short</span><span>Short goes</span><span>Starts in year</span><span>Counts</span><span></span></div>` +
+      cal.eras.map((e, i) => `<div class="row eras-row" data-i="${i}">
+        <input type="text" data-k="name" value="${esc(e.name)}" aria-label="Era name">
+        <input type="text" data-k="short" value="${esc(e.short)}" aria-label="Short form">
+        <select data-k="place" aria-label="Short form goes"><option value="after"${e.place !== "before" ? " selected" : ""}>after: 2026 CE</option><option value="before"${e.place === "before" ? " selected" : ""}>before: CE 2026</option></select>
+        ${e.counts === "down" ? `<span class="num" title="Counts down to the first era">before year 1</span>` : `<input type="number" data-k="start" value="${e.start}" aria-label="Starts in timeline year">`}
+        <select data-k="counts" aria-label="Counting direction"><option value="up"${e.counts === "up" ? " selected" : ""}>up from 1</option><option value="down"${e.counts === "down" ? " selected" : ""}>down to 1</option></select>
+        <button class="mini-btn row-x" data-x="${i}" aria-label="Remove era" ${cal.eras.filter(x => x.counts === "up").length <= 1 && e.counts === "up" ? "disabled" : ""}>×</button>
+      </div>`).join("");
+    $("showEra").checked = cal.showEra;
+
+    $("months").innerHTML = `<div class="row months-row row-head"><span>#</span><span>Name</span><span>Days</span><span class="leapcol">Leap day</span><span></span><span></span><span></span></div>` +
+      cal.months.map((m, i) => `<div class="row months-row" data-i="${i}">
+        <span class="num">${i + 1}</span>
+        <input type="text" data-k="name" value="${esc(m.name)}" aria-label="Month ${i + 1} name">
+        <input type="number" data-k="days" min="1" max="99" value="${m.days}" aria-label="Days in ${esc(m.name)}">
+        <label class="radio leapcol"><input type="radio" name="leapMonth" value="${i}"${cal.leapMonth === i ? " checked" : ""}> +1</label>
+        <button class="mini-btn" data-up="${i}" aria-label="Move up" ${i === 0 ? "disabled" : ""}>↑</button>
+        <button class="mini-btn" data-down="${i}" aria-label="Move down" ${i === cal.months.length - 1 ? "disabled" : ""}>↓</button>
+        <button class="mini-btn" data-x="${i}" aria-label="Remove month" ${cal.months.length <= 1 ? "disabled" : ""}>×</button>
+      </div>`).join("");
+    const base = baseYear();
+    $("monthSum").innerHTML = `<b>${base}</b> days in a year${cal.leapMonth != null && cal.leap.kind !== "none" ? `, <b>${base + 1}</b> in a leap year (extra day in ${esc(cal.months[cal.leapMonth]?.name ?? "")})` : ""}. <label class="radio" style="display:inline-flex;margin-left:8px"><input type="radio" name="leapMonth" value=""${cal.leapMonth == null ? " checked" : ""}> No leap day</label>`;
+
+    document.querySelectorAll('input[name="leap"]').forEach(r => { r.checked = r.value === cal.leap.kind; r.disabled = cal.leapMonth == null && r.value !== "none"; });
+    $("leapEvery").value = cal.leap.every;
+
+    $("weekdays").innerHTML = cal.weekdays.map((w, i) => `<input type="text" data-w="${i}" value="${esc(w)}" aria-label="Day ${i + 1} of the week">`).join("");
+    const wOpts = sel => cal.weekdays.map((w, i) => `<option value="${i}"${i === sel ? " selected" : ""}>${esc(w)}</option>`).join("");
+    $("weekStart").innerHTML = wOpts(cal.weekStart);
+    $("epochDay").innerHTML = wOpts(cal.epochWeekday);
+    $("removeWeekday").disabled = cal.weekdays.length <= 1;
+
+    $("holidays").innerHTML = cal.holidays.length ? `<div class="row hol-row row-head"><span>Name</span><span>Month</span><span>Day</span><span>Kind</span><span></span></div>` +
+      cal.holidays.map((h, i) => `<div class="row hol-row" data-i="${i}">
+        <input type="text" data-k="name" value="${esc(h.name)}" aria-label="Name">
+        <select data-k="m" aria-label="Month">${monthOptions(h.m)}</select>
+        <input type="number" data-k="d" min="1" value="${h.d}" aria-label="Day">
+        <select data-k="kind" aria-label="Kind"><option value="holiday"${h.kind === "holiday" ? " selected" : ""}>Holiday</option><option value="season"${h.kind === "season" ? " selected" : ""}>Season begins</option></select>
+        <button class="mini-btn row-x" data-x="${i}" aria-label="Remove">×</button>
+      </div>`).join("") : `<p class="hint" style="margin:0;color:var(--muted)">No recurring dates yet.</p>`;
+
+    $("moonOn").checked = cal.moon.on;
+    $("moonFields").style.opacity = cal.moon.on ? 1 : .45;
+    $("moonName").value = cal.moon.name; $("moonCycle").value = cal.moon.cycle;
+    $("moonM").innerHTML = monthOptions(Math.min(cal.moon.m, cal.months.length - 1)); $("moonD").value = cal.moon.d; $("moonY").value = cal.moon.y;
+
+    renderPreview();
+  }
+
+  function renderPreview() {
+    const n = cal.now;
+    $("sampleDate").textContent = formatDate(n.y, n.m, n.d);
+    const styles = [["long", "Weekday, day month year"], ["us", "Month day, year"], ["short-era", "Short, with era"], ["numeric", "Numbers"]];
+    $("formats").innerHTML = styles.map(([k, l]) => `<label><input type="radio" name="fmt" value="${k}"${cal.format === k ? " checked" : ""}><span><b>${esc(formatDate(n.y, n.m, n.d, k))}</b><br><span style="color:var(--muted);font-size:.78rem">${l}</span></span></label>`).join("");
+    const keepMode = mode; mode = "year";
+    const cols = Math.max(1, cal.weekdays.length);
+    const m = n.m, y = n.y, lead = mod(weekday(y, m, 1) - cal.weekStart, cols);
+    let cells = Array.from({ length: cols }, (_, i) => `<i>${esc((cal.weekdays[mod(cal.weekStart + i, cols)] || "?").slice(0, 2))}</i>`).join("") + "<span></span>".repeat(lead);
+    for (let d = 1; d <= monthDays(y, m); d++) cells += `<span class="${d === n.d ? "now" : holidaysOn(m, d).length ? "hol" : ""}">${d}</span>`;
+    $("previewMini").innerHTML = `<div class="mini" style="cursor:default"><h4>${esc(cal.months[m].name)} ${esc(yearLabel(y))}<span>${isLeap(y) ? "leap year" : ""}</span></h4><div class="mini-grid" style="--cols:${cols}">${cells}</div></div>`;
+    mode = keepMode;
+    $("stYear").textContent = baseYear(); $("stLeap").textContent = cal.leapMonth != null && cal.leap.kind !== "none" ? baseYear() + 1 : "—";
+    $("stMonths").textContent = cal.months.length; $("stWeek").textContent = cal.weekdays.length;
+  }
+
+  function clampNow() {
+    cal.now.m = Math.min(cal.now.m, cal.months.length - 1);
+    cal.now.d = Math.min(Math.max(1, cal.now.d), monthDays(cal.now.y, cal.now.m));
+    cal.weekStart = Math.min(cal.weekStart, cal.weekdays.length - 1);
+    cal.epochWeekday = Math.min(cal.epochWeekday, cal.weekdays.length - 1);
+    cal.holidays.forEach(h => { h.m = Math.min(h.m, cal.months.length - 1); });
+    threads.forEach(t => { if (t.date) { t.date.m = Math.min(t.date.m, cal.months.length - 1); t.date.d = Math.min(t.date.d, monthDays(t.date.y, t.date.m)); } });
+  }
+  function changed(full = true) { clampNow(); if (full) renderSetup(); else renderPreview(); renderCalendar(); }
+  function renderAll() { clampNow(); renderSetup(); renderCalendar(); }
+
+  /* setup events (delegated; text inputs update without re-rendering so typing keeps focus) */
+  const setupRoot = $("view-setup");
+  setupRoot.addEventListener("input", e => {
+    const t = e.target, row = t.closest("[data-i]"), i = row ? +row.dataset.i : -1;
+    if (row && row.closest("#months")) {
+      if (t.dataset.k === "name") { cal.months[i].name = t.value; return changed(false); }
+      if (t.dataset.k === "days") { const v = parseInt(t.value, 10); if (v >= 1 && v <= 99) { cal.months[i].days = v; changed(false); $("monthSum").firstChild && renderSumOnly(); } return; }
+    }
+    if (row && row.closest("#eras")) {
+      const e2 = cal.eras[i];
+      if (t.dataset.k === "name" || t.dataset.k === "short") { e2[t.dataset.k] = t.value; return changed(false); }
+      if (t.dataset.k === "start") { const v = parseInt(t.value, 10); if (Number.isFinite(v)) { e2.start = v; changed(false); } return; }
+    }
+    if (row && row.closest("#holidays")) {
+      const h = cal.holidays[i];
+      if (t.dataset.k === "name") { h.name = t.value; return changed(false); }
+      if (t.dataset.k === "d") { const v = parseInt(t.value, 10); if (v >= 1) { h.d = v; changed(false); } return; }
+    }
+    if (t.dataset.w != null) { cal.weekdays[+t.dataset.w] = t.value; renderWeekSelects(); return changed(false); }
+    if (t.id === "nowDay" || t.id === "nowYear") return setNow();
+    if (t.id === "leapEvery") { const v = parseInt(t.value, 10); if (v >= 2) { cal.leap.every = v; changed(false); } return; }
+    if (t.id === "moonName") { cal.moon.name = t.value; return changed(false); }
+    if (t.id === "moonCycle") { const v = parseFloat(t.value); if (v >= 2) { cal.moon.cycle = v; changed(false); } return; }
+    if (t.id === "moonD" || t.id === "moonY") { const v = parseInt(t.value, 10); if (Number.isFinite(v)) { cal.moon[t.id === "moonD" ? "d" : "y"] = v; changed(false); } return; }
+  });
+  function renderSumOnly() { const base = baseYear(); $("monthSum").querySelector("b").textContent = base; }
+  function renderWeekSelects() {
+    const wOpts = sel => cal.weekdays.map((w, i) => `<option value="${i}"${i === sel ? " selected" : ""}>${esc(w)}</option>`).join("");
+    $("weekStart").innerHTML = wOpts(cal.weekStart); $("epochDay").innerHTML = wOpts(cal.epochWeekday);
+  }
+  function setNow() {
+    const y = parseInt($("nowYear").value, 10), d = parseInt($("nowDay").value, 10);
+    if (!Number.isFinite(y) || !Number.isFinite(d)) return;
+    cal.now = { y: toTimelineYear(Math.max(1, y), $("nowEra").value), m: +$("nowMonth").value, d: Math.max(1, d) };
+    view = { y: cal.now.y, m: cal.now.m }; selected = { ...cal.now };
+    changed(false);
+  }
+  setupRoot.addEventListener("change", e => {
+    const t = e.target, row = t.closest("[data-i]"), i = row ? +row.dataset.i : -1;
+    if (t.name === "leapMonth") { cal.leapMonth = t.value === "" ? null : +t.value; if (cal.leapMonth != null && cal.leap.kind === "none") cal.leap.kind = "gregorian"; return changed(); }
+    if (t.name === "leap") { cal.leap.kind = t.value; return changed(); }
+    if (t.name === "fmt") { cal.format = t.value; return changed(false); }
+    if (row && row.closest("#eras") && t.dataset.k === "place") { cal.eras[i].place = t.value; return changed(false); }
+    if (row && row.closest("#eras") && t.dataset.k === "counts") {
+      if (t.value === "down") cal.eras.forEach(x => { if (x.counts === "down") x.counts = "up"; });
+      cal.eras[i].counts = t.value; return changed();
+    }
+    if (row && row.closest("#holidays") && (t.dataset.k === "m" || t.dataset.k === "kind")) { cal.holidays[i][t.dataset.k] = t.dataset.k === "m" ? +t.value : t.value; return changed(false); }
+    if (row && row.closest("#months") && t.dataset.k === "days") return changed();
+    if (t.id === "nowMonth" || t.id === "nowEra") return setNow();
+    if (t.id === "showEra") { cal.showEra = t.checked; return changed(false); }
+    if (t.id === "weekStart") { cal.weekStart = +t.value; return changed(false); }
+    if (t.id === "epochDay") { cal.epochWeekday = +t.value; return changed(false); }
+    if (t.id === "moonOn") { cal.moon.on = t.checked; return changed(); }
+    if (t.id === "moonM") { cal.moon.m = +t.value; return changed(false); }
+  });
+  setupRoot.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    const inMonths = b.closest("#months"), inEras = b.closest("#eras"), inHol = b.closest("#holidays");
+    if (inMonths && b.dataset.x != null) { const i = +b.dataset.x; cal.months.splice(i, 1); if (cal.leapMonth === i) cal.leapMonth = null; else if (cal.leapMonth > i) cal.leapMonth--; return changed(); }
+    if (inMonths && (b.dataset.up != null || b.dataset.down != null)) {
+      const i = +(b.dataset.up ?? b.dataset.down), j = b.dataset.up != null ? i - 1 : i + 1;
+      [cal.months[i], cal.months[j]] = [cal.months[j], cal.months[i]];
+      if (cal.leapMonth === i) cal.leapMonth = j; else if (cal.leapMonth === j) cal.leapMonth = i;
+      return changed();
+    }
+    if (inEras && b.dataset.x != null) { cal.eras.splice(+b.dataset.x, 1); return changed(); }
+    if (inHol && b.dataset.x != null) { cal.holidays.splice(+b.dataset.x, 1); return changed(); }
+    if (b.id === "addMonth") { cal.months.push({ id: uid("m"), name: "New month", days: 30 }); return changed(); }
+    if (b.id === "addEra") { const last = Math.max(1, ...cal.eras.filter(x => x.counts === "up").map(x => x.start)); cal.eras.push({ id: uid("e"), name: "New era", short: "NE", place: "after", start: Math.max(cal.now.y + 1, last + 100), counts: "up" }); return changed(); }
+    if (b.id === "addHoliday") { cal.holidays.push({ id: uid("h"), name: "New holiday", m: cal.now.m, d: 1, kind: "holiday" }); return changed(); }
+    if (b.id === "addWeekday") { cal.weekdays.push("Day " + (cal.weekdays.length + 1)); return changed(); }
+    if (b.id === "removeWeekday" && cal.weekdays.length > 1) { cal.weekdays.pop(); return changed(); }
+  });
+
+  /* routing */
+  const views = ["calendar", "setup", "notes"];
+  function route() {
+    const h = location.hash.slice(1), v = views.includes(h) ? h : "calendar";
+    views.forEach(id => { $("view-" + id).hidden = id !== v; });
+    document.querySelectorAll(".tabs a").forEach(a => a.setAttribute("aria-current", a.dataset.view === v ? "page" : "false"));
+  }
+  addEventListener("hashchange", route);
+  route(); renderAll();
+})();
+</script>

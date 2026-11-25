@@ -1,4 +1,5 @@
 import { useMemo, type CSSProperties } from "react";
+import { reckonProject } from "../lib/calendar";
 import { leatherFor } from "../lib/leather";
 import { smartQuotes } from "../lib/storybookPages";
 import { useStory } from "../lib/store";
@@ -128,9 +129,11 @@ export function HomeView() {
     return { entry, links };
   });
 
+  const reckoner = reckonProject(project);
+  const nowYear = project.calendar.now.year;
   const months = project.months.length ? project.months : [{ id: "m", name: "Year", days: 30 }];
   const events = project.events
-    .filter((event) => event.year === project.year)
+    .filter((event) => !event.undated && event.year === nowYear)
     .map((event) => {
       const month = months[Math.min(months.length - 1, Math.max(0, event.monthIndex))];
       const at = (Math.max(0, event.monthIndex) + (Math.max(1, event.day) - 1) / Math.max(1, month.days)) / months.length;
@@ -302,9 +305,7 @@ export function HomeView() {
 
           <section className="card home-span-12">
             <div className="home-card-head">
-              <h3>
-                {project.eraName} {project.year}
-              </h3>
+              <h3>{reckoner.yearLabel(nowYear, true)}</h3>
               <button className="text-btn" onClick={() => story.setView("threads")}>
                 Open Threads →
               </button>
@@ -336,7 +337,7 @@ export function HomeView() {
                   <span key={month.id} className="home-month">{month.name}</span>
                 ))}
               </div>
-              {!placed.length ? <p className="muted home-small">No threads dated in {project.year} yet. Add one in Threads or on the Calendar.</p> : null}
+              {!placed.length ? <p className="muted home-small">No threads dated in {reckoner.yearLabel(nowYear, true)} yet. Add one in Threads or on the Calendar.</p> : null}
             </div>
           </section>
         </>
