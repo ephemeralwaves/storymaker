@@ -32,7 +32,18 @@ export function PeopleView() {
         <section className="editor card">
           <div className="editor-head">
             <h2>{selected.name}</h2>
-            <button className="btn danger" onClick={() => story.deleteCharacter(selected.id)}>
+            <button
+              className="btn danger"
+              onClick={() => {
+                if (
+                  confirm(
+                    `Let ${selected.name} rest? This permanently deletes this character and removes their bonds from the board.`,
+                  )
+                ) {
+                  story.deleteCharacter(selected.id);
+                }
+              }}
+            >
               Let them rest
             </button>
           </div>

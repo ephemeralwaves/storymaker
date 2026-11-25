@@ -24,6 +24,8 @@ export function BondsView() {
           title: person.name,
           subtitle: person.role,
           body: person.summary,
+          image: person.image || undefined,
+          openable: true,
         }))}
         edges={story.project.relationships.map((bond) => ({
           id: bond.id,
@@ -94,29 +96,39 @@ export function BondsView() {
       ) : (
         <p className="muted">Select a link to edit the bond. Drag between the dots on two people to make a new one.</p>
       )}
-      <section className="card stack">
-        <div className="row spread">
-          <h3>Bond types</h3>
-          <button className="btn" onClick={story.addBondKind}>
-            Add a type
-          </button>
+      <details className="cal-more">
+        <summary>
+          <div>
+            <strong>Bond types</strong>
+            <span className="muted">{story.project.bondKinds.length} types you can rename or add</span>
+          </div>
+          <span className="cal-chev" aria-hidden="true">
+            ▾
+          </span>
+        </summary>
+        <div className="cal-more-body">
+          <div className="row">
+            <button className="btn" onClick={story.addBondKind}>
+              Add a type
+            </button>
+          </div>
+          <div className="form-grid">
+            {story.project.bondKinds.map((kind) => (
+              <div key={kind.id} className="field">
+                <span>Type name</span>
+                <input
+                  value={kind.name}
+                  aria-label={`Bond type ${kind.name}`}
+                  onChange={(event) => story.renameBondKind(kind.id, event.target.value)}
+                />
+                <button className="text-btn" disabled={story.project.bondKinds.length <= 1} onClick={() => story.removeBondKind(kind.id)}>
+                  Remove type
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="form-grid">
-          {story.project.bondKinds.map((kind) => (
-            <div key={kind.id} className="field">
-              <span>Type name</span>
-              <input
-                value={kind.name}
-                aria-label={`Bond type ${kind.name}`}
-                onChange={(event) => story.renameBondKind(kind.id, event.target.value)}
-              />
-              <button className="text-btn" disabled={story.project.bondKinds.length <= 1} onClick={() => story.removeBondKind(kind.id)}>
-                Remove type
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
+      </details>
     </div>
   );
 }
