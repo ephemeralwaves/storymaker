@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { SearchDialog } from "./components/Search";
 import { Lumen } from "./components/ui";
 import { ambience } from "./lib/ambience";
@@ -23,17 +23,17 @@ function NavIcon({ children }: { children: ReactNode }) {
   );
 }
 
-const NAV: { id: ViewId; label: string; hint: string; icon: ReactNode }[] = [
+const NAV: { id: ViewId; label: string; hint: string; group?: string; icon: ReactNode }[] = [
   { id: "home", label: "Home", hint: "The shelf of stories, the lamp, and how the writing has been going.", icon: <NavIcon><path d="M4 10.5 12 4l8 6.5" /><path d="M6 10v9h12v-9" /></NavIcon> },
-  { id: "people", label: "People", hint: "Character sheets: who they are, and a picture if you have one.", icon: <NavIcon><circle cx="12" cy="8" r="3" /><path d="M5 19c1.2-3 3.4-4.5 7-4.5S17.8 16 19 19" /></NavIcon> },
-  { id: "lore", label: "Lore", hint: "Wiki notes on shelves such as places, objects, and customs.", icon: <NavIcon><path d="M5 5h6a3 3 0 0 1 3 3v12a3 3 0 0 0-3-3H5z" /><path d="M19 5h-6a3 3 0 0 0-3 3v12a3 3 0 0 1 3-3h6z" /></NavIcon> },
-  { id: "threads", label: "Threads", hint: "Events dated on the story calendar and tagged with people.", icon: <NavIcon><path d="M8 6h11" /><path d="M5 12h14" /><path d="M8 18h11" /><circle cx="5" cy="6" r="1.2" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.2" fill="currentColor" stroke="none" /><circle cx="5" cy="18" r="1.2" fill="currentColor" stroke="none" /></NavIcon> },
-  { id: "calendar", label: "Calendar", hint: "Named months. A day opens the thread stored there.", icon: <NavIcon><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4M16 3v4M4 10h16" /></NavIcon> },
-  { id: "hearth", label: "Hearth", hint: "Chapters and scenes, the manuscript itself.", icon: <NavIcon><path d="M12 20c4 0 6-3 6-6 0-4-3-6-4-8-1 2-3 3-3 5 0-3-2-5-4-6 0 4-3 6-3 9 0 3 2 6 8 6z" /></NavIcon> },
-  { id: "storybook", label: "Storybook", hint: "Read the manuscript like a glowing book. No editing here.", icon: <NavIcon><path d="M5 5h6a3 3 0 0 1 3 3v12a3 3 0 0 0-3-3H5z" /><path d="M19 5h-6a3 3 0 0 0-3 3v12a3 3 0 0 1 3-3h6z" /><path d="M12 8v8" /></NavIcon> },
-  { id: "bonds", label: "Bonds", hint: "People on a board. Drag a dot to link two of them.", icon: <NavIcon><circle cx="7" cy="12" r="2.2" /><circle cx="17" cy="8" r="2.2" /><circle cx="17" cy="16" r="2.2" /><path d="M9 11.2 14.8 8.8M9 12.8l5.8 2.4" /></NavIcon> },
-  { id: "vision", label: "Vision", hint: "A canvas for notes, people, photos, and music.", icon: <NavIcon><rect x="4" y="5" width="16" height="14" rx="2" /><path d="M8 15l2.5-3 2 2 2-2.5L18 15" /></NavIcon> },
-  { id: "settings", label: "Settings", hint: "Themes, type, local model, the vault folder, and a JSON backup.", icon: <NavIcon><circle cx="12" cy="12" r="3" /><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" /></NavIcon> },
+  { id: "hearth", group: "Write", label: "Hearth", hint: "Chapters and scenes, the manuscript itself.", icon: <NavIcon><path d="M12 20c4 0 6-3 6-6 0-4-3-6-4-8-1 2-3 3-3 5 0-3-2-5-4-6 0 4-3 6-3 9 0 3 2 6 8 6z" /></NavIcon> },
+  { id: "storybook", group: "Write", label: "Storybook", hint: "Open the book and read the manuscript page by page. No editing here.", icon: <NavIcon><path d="M5 5h6a3 3 0 0 1 3 3v12a3 3 0 0 0-3-3H5z" /><path d="M19 5h-6a3 3 0 0 0-3 3v12a3 3 0 0 1 3-3h6z" /><path d="M12 8v8" /></NavIcon> },
+  { id: "people", group: "World", label: "People", hint: "Character sheets: who they are, and a picture if you have one.", icon: <NavIcon><circle cx="12" cy="8" r="3" /><path d="M5 19c1.2-3 3.4-4.5 7-4.5S17.8 16 19 19" /></NavIcon> },
+  { id: "lore", group: "World", label: "Lore", hint: "Wiki notes on shelves such as places, objects, and customs.", icon: <NavIcon><path d="M5 5h6a3 3 0 0 1 3 3v12a3 3 0 0 0-3-3H5z" /><path d="M19 5h-6a3 3 0 0 0-3 3v12a3 3 0 0 1 3-3h6z" /></NavIcon> },
+  { id: "bonds", group: "World", label: "Bonds", hint: "People on a board. Drag a dot to link two of them.", icon: <NavIcon><circle cx="7" cy="12" r="2.2" /><circle cx="17" cy="8" r="2.2" /><circle cx="17" cy="16" r="2.2" /><path d="M9 11.2 14.8 8.8M9 12.8l5.8 2.4" /></NavIcon> },
+  { id: "vision", group: "World", label: "Vision", hint: "A canvas for notes, people, photos, and music.", icon: <NavIcon><rect x="4" y="5" width="16" height="14" rx="2" /><path d="M8 15l2.5-3 2 2 2-2.5L18 15" /></NavIcon> },
+  { id: "threads", group: "Time", label: "Threads", hint: "Events dated on the story calendar and tagged with people.", icon: <NavIcon><path d="M8 6h11" /><path d="M5 12h14" /><path d="M8 18h11" /><circle cx="5" cy="6" r="1.2" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.2" fill="currentColor" stroke="none" /><circle cx="5" cy="18" r="1.2" fill="currentColor" stroke="none" /></NavIcon> },
+  { id: "calendar", group: "Time", label: "Calendar", hint: "Named months. A day opens the thread stored there.", icon: <NavIcon><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4M16 3v4M4 10h16" /></NavIcon> },
+  { id: "settings", group: "Settings", label: "Settings", hint: "Themes, type, local model, the vault folder, and a JSON backup.", icon: <NavIcon><circle cx="12" cy="12" r="3" /><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" /></NavIcon> },
 ];
 
 export function App() {
@@ -95,9 +95,14 @@ export function App() {
           </div>
         </button>
         <nav>
-          {NAV.map((item) => (
+          {NAV.map((item, index) => (
+            <Fragment key={item.id}>
+            {item.group && item.group !== NAV[index - 1]?.group ? (
+              <span className={item.group === "Settings" ? "nav-group nav-group-gap" : "nav-group"} aria-hidden="true">
+                {item.group === "Settings" ? "" : item.group}
+              </span>
+            ) : null}
             <button
-              key={item.id}
               className={story.view === item.id ? "nav-btn on" : "nav-btn"}
               aria-label={`${item.label}. ${item.hint}`}
               onClick={() => story.setView(item.id)}
@@ -109,6 +114,7 @@ export function App() {
                 {item.hint}
               </span>
             </button>
+            </Fragment>
           ))}
         </nav>
         <button className="lamp" aria-label={project.lampLit ? "Lamp lit" : "Light the lamp"} onClick={project.lampLit ? story.extinguishLamp : story.lightLamp}>

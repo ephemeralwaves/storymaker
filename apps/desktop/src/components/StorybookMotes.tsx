@@ -44,6 +44,30 @@ export function StorybookMotes({ calm, handle }: { calm: boolean; handle: Mutabl
     let width = 0;
     let height = 0;
     let frame = 0;
+    let tick = 0;
+    let rgb = "230, 189, 106";
+    let glowMode: GlobalCompositeOperation = "lighter";
+
+    /* dust takes the theme's accent; it glows additively on dark rooms and sits on top in light ones */
+    const readTheme = () => {
+      const styles = getComputedStyle(host);
+      const accent = styles.getPropertyValue("--accent").trim();
+      const bg = styles.getPropertyValue("--bg").trim();
+      const probe = document.createElement("canvas").getContext("2d");
+      if (!probe) return;
+      const toRgb = (value: string) => {
+        probe.fillStyle = "#000";
+        probe.fillStyle = value;
+        const hex = String(probe.fillStyle);
+        if (!hex.startsWith("#") || hex.length !== 7) return null;
+        return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      };
+      const a = accent ? toRgb(accent) : null;
+      if (a) rgb = a.join(", ");
+      const b = bg ? toRgb(bg) : null;
+      if (b) glowMode = (0.2126 * b[0] + 0.7152 * b[1] + 0.0722 * b[2]) / 255 < 0.45 ? "lighter" : "source-over";
+    };
+    readTheme();
 
     const resize = () => {
       const oldW = width || 1;
@@ -66,8 +90,9 @@ export function StorybookMotes({ calm, handle }: { calm: boolean; handle: Mutabl
     };
 
     const draw = (time: number) => {
+      if (++tick % 90 === 0) readTheme();
       ctx.clearRect(0, 0, width, height);
-      ctx.globalCompositeOperation = "lighter";
+      ctx.globalCompositeOperation = glowMode;
       for (let i = motes.length - 1; i >= 0; i--) {
         const m = motes[i];
         if (!calm) {
@@ -88,11 +113,11 @@ export function StorybookMotes({ calm, handle }: { calm: boolean; handle: Mutabl
         }
         const twinkle = 0.45 + 0.55 * Math.sin((time / 1000) * m.speed + m.phase);
         const alpha = (m.burst ? m.life : 0.7) * twinkle;
-        ctx.fillStyle = `rgba(230, 189, 106, ${alpha * 0.18})`;
+        ctx.fillStyle = `rgba(${rgb}, ${alpha * (glowMode === "lighter" ? 0.18 : 0.12)})`;
         ctx.beginPath();
         ctx.arc(m.x, m.y, m.r * 4, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = `rgba(255, 236, 180, ${alpha})`;
+        ctx.fillStyle = glowMode === "lighter" ? `rgba(255, 236, 180, ${alpha})` : `rgba(${rgb}, ${alpha * 0.85})`;
         ctx.beginPath();
         ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2);
         ctx.fill();
