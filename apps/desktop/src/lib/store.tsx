@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { blankProject, bookKey, libraryWasSaved, loadLibrary, readBook, writeLibrary, type BookMeta } from "./library";
+import { blankProject, clearBook, libraryWasSaved, loadLibrary, readBook, writeBook, writeLibrary, type BookMeta } from "./library";
 import { normalizeProject } from "./normalize";
 import { createSeed } from "../seed";
 import { saveTrack } from "./tracks";
@@ -92,6 +92,7 @@ interface StoryApi {
   openBook: (id: string) => void;
   addBook: (title: string) => void;
   removeBook: (id: string) => void;
+  restoreShelf: (shelf: { books: BookMeta[]; activeId: string; projects: Record<string, Project> }) => void;
 }
 
 const StoryContext = createContext<StoryApi | null>(null);
@@ -683,7 +684,7 @@ export function StoryProvider({ children }: { children: ReactNode }) {
       const book = books.find((item) => item.id === id);
       if (!book) return;
       if (!confirm(`Take “${book.title}” off the shelf? This removes it from StoryMaker on this computer.`)) return;
-      localStorage.removeItem(bookKey(id));
+      clearBook(id);
       const rest = books.filter((item) => item.id !== id);
       setBooks(rest);
       if (id !== bookId) return;
@@ -703,6 +704,35 @@ export function StoryProvider({ children }: { children: ReactNode }) {
       setBookId(fallback.id);
       setProject(next);
       applyOpen(next, { setSelectedCharacterId, setSelectedLoreId, setSelectedSceneId, setSelectedEventId });
+    },
+    restoreShelf: (shelf) => {
+      clearSceneHistory();
+      const keep = new Set(shelf.books.map((book) => book.id));
+      for (const book of books) {
+        if (!keep.has(book.id)) clearBook(book.id);
+      }
+      for (const book of shelf.books) {
+        const next = shelf.projects[book.id];
+        if (next) writeBook(book.id, normalizeProject(next));
+      }
+      const activeId = shelf.books.some((book) => book.id === shelf.activeId) ? shelf.activeId : shelf.books[0]?.id ?? "";
+      const active = activeId ? shelf.projects[activeId] : null;
+      if (!activeId || !active) {
+        setBooks([]);
+        setBookId("");
+        setProject(blankProject("Untitled story"));
+        setView("home");
+        setFocusMode(false);
+        return;
+      }
+      const normalized = normalizeProject(active);
+      setVaultBook(activeId);
+      setBooks(shelf.books.map((book) => ({ ...book, title: shelf.projects[book.id]?.name || book.title, tagline: shelf.projects[book.id]?.tagline || book.tagline })));
+      setBookId(activeId);
+      setProject(normalized);
+      applyOpen(normalized, { setSelectedCharacterId, setSelectedLoreId, setSelectedSceneId, setSelectedEventId });
+      setView("home");
+      setFocusMode(false);
     },
   };
 

@@ -1,9 +1,28 @@
 import { openDb } from "./idb";
+import { readBook, type BookMeta } from "./library";
+import { normalizeProject } from "./normalize";
 import { loadTrack, saveTrack, trackId } from "./tracks";
 import { downloadBlob } from "./util";
 import { hoistVaultRoot, projectToVault, vaultFilesFromBytes, vaultToProject, type ImportedTrack, type VaultFile } from "./vault";
 import { unzip, zipStore } from "./zip";
 import type { Project } from "../types";
+
+const TRACK_EXT: Record<string, string> = {
+  "audio/mpeg": "mp3",
+  "audio/mp3": "mp3",
+  "audio/wav": "wav",
+  "audio/ogg": "ogg",
+  "audio/mp4": "m4a",
+  "audio/flac": "flac",
+};
+
+const TRACK_MIME: Record<string, string> = {
+  mp3: "audio/mpeg",
+  wav: "audio/wav",
+  ogg: "audio/ogg",
+  m4a: "audio/mp4",
+  flac: "audio/flac",
+};
 
 const HANDLES = "handles";
 const MANIFEST = ".storymaker/files.json";
@@ -292,6 +311,229 @@ export async function downloadVaultZip(project: Project): Promise<void> {
   downloadBlob(`${safeDownloadName(project.name)}.zip`, blob);
 }
 
+/** One zip for the whole shelf: each book folder holds project.storymaker.json, tracks/, and an Obsidian vault/. */
+export async function downloadShelfZip(args: {
+  books: BookMeta[];
+  activeId: string;
+  activeProject: Project;
+}): Promise<void> {
+  const encoder = new TextEncoder();
+  const entries: { path: string; bytes: Uint8Array }[] = [];
+  const used = new Set<string>();
+  const indexBooks: { id: string; title: string; tagline: string; spine: number; folder: string }[] = [];
+
+  for (const book of args.books) {
+    const project = book.id === args.activeId ? args.activeProject : readBook(book.id);
+    if (!project) continue;
+    const folder = uniqueDownloadFolder(used, project.name || book.title);
+    indexBooks.push({
+      id: book.id,
+      title: project.name,
+      tagline: project.tagline,
+      spine: book.spine,
+      folder,
+    });
+    entries.push({
+      path: `${folder}/project.storymaker.json`,
+      bytes: encoder.encode(JSON.stringify(project, null, 2)),
+    });
+    const seenTracks = new Set<string>();
+    for (const card of project.vision.cards) {
+      const id = trackId(card.media);
+      if (!id || seenTracks.has(id)) continue;
+      seenTracks.add(id);
+      const blob = await loadTrack(id);
+      if (!blob) continue;
+      const ext = TRACK_EXT[blob.type] || "mp3";
+      entries.push({
+        path: `${folder}/tracks/${id}.${ext}`,
+        bytes: new Uint8Array(await blob.arrayBuffer()),
+      });
+    }
+    const vault = await filesFor(project);
+    for (const file of vault) {
+      entries.push({
+        path: `${folder}/vault/${file.path}`,
+        bytes: file.bytes ?? encoder.encode(file.text ?? ""),
+      });
+    }
+  }
+
+  entries.unshift({
+    path: "shelf.json",
+    bytes: encoder.encode(
+      JSON.stringify(
+        {
+          format: "storymaker.shelf.v1",
+          exportedAt: new Date().toISOString(),
+          activeId: args.activeId,
+          books: indexBooks,
+        },
+        null,
+        2,
+      ),
+    ),
+  });
+
+  const stamp = new Date().toISOString().slice(0, 10);
+  downloadBlob(`StoryMaker-shelf-${stamp}.zip`, zipStore(entries));
+}
+
+export interface ShelfBackup {
+  books: BookMeta[];
+  activeId: string;
+  projects: Record<string, Project>;
+}
+
+export function looksLikeShelfZip(entries: { path: string }[]): boolean {
+  const paths = entries.map((entry) => entry.path.replace(/\\/g, "/"));
+  if (paths.some((path) => path === "shelf.json" || path.endsWith("/shelf.json"))) return true;
+  return paths.some((path) => path === "project.storymaker.json" || path.endsWith("/project.storymaker.json"));
+}
+
+export async function importShelfZip(buffer: ArrayBuffer): Promise<ShelfBackup> {
+  const raw = await unzip(buffer);
+  if (!looksLikeShelfZip(raw)) throw new Error("That zip is not a StoryMaker shelf backup. Use Export all books to make one.");
+  const entries = hoistShelfRoot(raw);
+  const decoder = new TextDecoder();
+  const byPath = new Map(entries.map((entry) => [entry.path.replace(/\\/g, "/"), entry]));
+
+  const shelfText = byPath.get("shelf.json");
+  type ShelfIndex = {
+    activeId?: string;
+    books?: { id: string; title: string; tagline: string; spine: number; folder: string }[];
+  };
+  let index: ShelfIndex | null = null;
+  if (shelfText) {
+    try {
+      index = JSON.parse(decoder.decode(shelfText.bytes)) as ShelfIndex;
+    } catch {
+      index = null;
+    }
+  }
+
+  const folderNames = new Set<string>();
+  if (index?.books?.length) {
+    for (const book of index.books) {
+      if (book.folder) folderNames.add(book.folder.replace(/\\/g, "/").replace(/\/$/, ""));
+    }
+  } else {
+    for (const path of byPath.keys()) {
+      if (path === "project.storymaker.json") folderNames.add("");
+      const match = path.match(/^([^/]+)\/project\.storymaker\.json$/);
+      if (match) folderNames.add(match[1]);
+    }
+  }
+
+  if (!folderNames.size) throw new Error("That shelf backup has no books inside.");
+
+  const books: BookMeta[] = [];
+  const projects: Record<string, Project> = {};
+  let spine = 0;
+
+  for (const folder of folderNames) {
+    const jsonPath = folder ? `${folder}/project.storymaker.json` : "project.storymaker.json";
+    const jsonEntry = byPath.get(jsonPath);
+    if (!jsonEntry) continue;
+    let parsed: Project;
+    try {
+      parsed = JSON.parse(decoder.decode(jsonEntry.bytes)) as Project;
+    } catch {
+      continue;
+    }
+    if (!parsed?.characters || !parsed.comfort) continue;
+
+    const meta = index?.books?.find((book) => book.folder === folder);
+    const id = meta?.id || parsed.id || `book-${spine}`;
+    const project = normalizeProject({ ...parsed, id: parsed.id || id });
+    await restoreShelfTracks(folder, project, byPath);
+
+    books.push({
+      id,
+      title: meta?.title || project.name,
+      tagline: meta?.tagline || project.tagline,
+      spine: Number.isFinite(meta?.spine) ? meta!.spine : spine,
+    });
+    projects[id] = project;
+    spine += 1;
+  }
+
+  if (!books.length) throw new Error("That shelf backup had no readable books.");
+  books.sort((a, b) => a.spine - b.spine);
+  const activeId = books.some((book) => book.id === index?.activeId) ? index!.activeId! : books[0].id;
+  return { books, activeId, projects };
+}
+
+async function restoreShelfTracks(
+  folder: string,
+  project: Project,
+  byPath: Map<string, { path: string; bytes: Uint8Array }>,
+): Promise<void> {
+  const prefix = folder ? `${folder}/tracks/` : "tracks/";
+  for (const [path, entry] of byPath) {
+    if (!path.startsWith(prefix)) continue;
+    const name = path.slice(prefix.length);
+    if (!name || name.includes("/")) continue;
+    const dot = name.lastIndexOf(".");
+    if (dot <= 0) continue;
+    const id = name.slice(0, dot);
+    const ext = name.slice(dot + 1).toLowerCase();
+    const mime = TRACK_MIME[ext] || "audio/mpeg";
+    await saveTrack(id, new Blob([entry.bytes.slice()], { type: mime }));
+  }
+
+  // Older shelf zips only kept audio inside vault/attachments; rebuild those track ids from the canvas.
+  const needed = project.vision.cards
+    .map((card) => trackId(card.media))
+    .filter((id): id is string => Boolean(id));
+  if (!needed.length) return;
+  const vaultPrefix = folder ? `${folder}/vault/` : "vault/";
+  const vaultFiles: VaultFile[] = [];
+  for (const [path, entry] of byPath) {
+    if (!path.startsWith(vaultPrefix)) continue;
+    vaultFiles.push(...vaultFilesFromBytes([{ path: path.slice(vaultPrefix.length), bytes: entry.bytes }]));
+  }
+  if (!vaultFiles.length) return;
+  const canvas = vaultFiles.find((file) => file.path.replace(/\\/g, "/") === "Vision.canvas");
+  if (!canvas?.text) return;
+  try {
+    const parsed = JSON.parse(canvas.text) as { nodes?: { id?: string; file?: string }[] };
+    const fileByCard = new Map<string, string>();
+    for (const node of parsed.nodes ?? []) {
+      if (node.id && node.file) fileByCard.set(node.id, node.file.replace(/\\/g, "/"));
+    }
+    const vaultByPath = new Map(vaultFiles.map((file) => [file.path.replace(/\\/g, "/"), file]));
+    for (const card of project.vision.cards) {
+      const id = trackId(card.media);
+      if (!id) continue;
+      const filePath = fileByCard.get(card.id);
+      if (!filePath) continue;
+      const file = vaultByPath.get(filePath);
+      if (!file?.bytes) continue;
+      const ext = filePath.split(".").pop()?.toLowerCase() ?? "mp3";
+      await saveTrack(id, new Blob([file.bytes.slice()], { type: TRACK_MIME[ext] || "audio/mpeg" }));
+    }
+  } catch {
+    /* canvas was optional */
+  }
+}
+
+function hoistShelfRoot(entries: { path: string; bytes: Uint8Array }[]): { path: string; bytes: Uint8Array }[] {
+  const paths = entries.map((entry) => entry.path.replace(/\\/g, "/"));
+  if (paths.some((path) => path === "shelf.json" || path === "project.storymaker.json")) return entries.map((entry) => ({ ...entry, path: entry.path.replace(/\\/g, "/") }));
+  const tops = new Set(paths.map((path) => path.split("/")[0]).filter(Boolean));
+  if (tops.size !== 1) return entries.map((entry) => ({ ...entry, path: entry.path.replace(/\\/g, "/") }));
+  const root = [...tops][0];
+  const nested = paths.filter((path) => path.startsWith(`${root}/`));
+  if (!nested.some((path) => path === `${root}/shelf.json` || path.endsWith("/project.storymaker.json"))) {
+    return entries.map((entry) => ({ ...entry, path: entry.path.replace(/\\/g, "/") }));
+  }
+  return entries.map((entry) => {
+    const path = entry.path.replace(/\\/g, "/");
+    return { path: path.startsWith(`${root}/`) ? path.slice(root.length + 1) : path, bytes: entry.bytes };
+  });
+}
+
 export async function importVaultFiles(files: VaultFile[], base: Project): Promise<{ project: Project; tracks: ImportedTrack[] }> {
   const imported = vaultToProject(hoistVaultRoot(files), base);
   await keptProject(imported);
@@ -433,4 +675,16 @@ function requestFrom<T>(db: IDBDatabase, read: (store: IDBObjectStore) => IDBReq
 
 function safeDownloadName(name: string): string {
   return name.replace(/[\\/:*?"<>|]/g, "").trim() || "story";
+}
+
+function uniqueDownloadFolder(used: Set<string>, name: string): string {
+  const base = safeDownloadName(name);
+  let folder = base;
+  let n = 2;
+  while (used.has(folder.toLowerCase())) {
+    folder = `${base}-${n}`;
+    n += 1;
+  }
+  used.add(folder.toLowerCase());
+  return folder;
 }

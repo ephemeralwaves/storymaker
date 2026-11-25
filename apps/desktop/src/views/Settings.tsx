@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { getCachedOllamaModels, listOllamaModels } from "../lib/ai";
 import { useStory } from "../lib/store";
 import { downloadText } from "../lib/util";
-import { chooseVaultFolder, downloadVaultZip, explainVaultError, filesFromDirectoryInput, importVaultFiles, importVaultZip, keptProject, readLinkedProject, rememberFolderName, subscribeVault, vaultUsesDesktopPicker, writeRememberedVault, type VaultStatus } from "../lib/vaultFolder";
+import { chooseVaultFolder, downloadShelfZip, downloadVaultZip, explainVaultError, filesFromDirectoryInput, importShelfZip, importVaultFiles, importVaultZip, keptProject, looksLikeShelfZip, readLinkedProject, rememberFolderName, subscribeVault, vaultUsesDesktopPicker, writeRememberedVault, type VaultStatus } from "../lib/vaultFolder";
+import { unzip } from "../lib/zip";
 import { AMBIENCES, THEMES, type Project } from "../types";
 
 export function SettingsView() {
@@ -13,6 +14,8 @@ export function SettingsView() {
   const [tagline, setTagline] = useState(project.tagline);
   const [vault, setVault] = useState<VaultStatus>({ folder: null, error: "", savedAt: null });
   const [vaultMessage, setVaultMessage] = useState("");
+  const [shelfBusy, setShelfBusy] = useState(false);
+  const [backupMessage, setBackupMessage] = useState("");
   const [pickingFolder, setPickingFolder] = useState(false);
   const folderInput = useRef<HTMLInputElement>(null);
   const folderAccepted = useRef(false);
@@ -320,8 +323,24 @@ export function SettingsView() {
                 if (!file) return;
                 void file
                   .arrayBuffer()
-                  .then((buffer) => importVaultZip(buffer, project))
-                  .then(async (imported) => takeImport({ project: await keptProject(imported) }))
+                  .then(async (buffer) => {
+                    const entries = await unzip(buffer);
+                    if (looksLikeShelfZip(entries)) {
+                      if (
+                        !confirm(
+                          "That zip is a full shelf backup. Replace every book on this shelf with the books inside it?",
+                        )
+                      ) {
+                        return;
+                      }
+                      const shelf = await importShelfZip(buffer);
+                      story.restoreShelf(shelf);
+                      setVaultMessage(`Restored ${shelf.books.length} book${shelf.books.length === 1 ? "" : "s"} onto the shelf.`);
+                      return;
+                    }
+                    const imported = await importVaultZip(buffer, project);
+                    await takeImport({ project: await keptProject(imported) });
+                  })
                   .catch((error: unknown) => {
                     const message = explainVaultError(error);
                     if (message) setVaultMessage(message);
@@ -333,13 +352,14 @@ export function SettingsView() {
       </section>
 
       <section className="card stack">
-        <h3>App backup</h3>
+        <h3>This book</h3>
+        <p className="muted">Backup or replace only the open story. Nothing is uploaded.</p>
         <div className="row wrap">
           <button className="btn" onClick={() => downloadText(`${project.name}.storymaker.json`, JSON.stringify(project, null, 2))}>
-            Export project
+            Export JSON
           </button>
           <label className="btn">
-            Import project
+            Import JSON
             <input
               hidden
               type="file"
@@ -356,7 +376,7 @@ export function SettingsView() {
             />
           </label>
           <button className="btn" onClick={() => void downloadVaultZip(project)}>
-            Download Obsidian vault
+            Export Obsidian vault
           </button>
           <button
             className="btn danger"
@@ -367,9 +387,70 @@ export function SettingsView() {
             Restore sample story
           </button>
         </div>
+      </section>
+
+      <section className="card stack">
+        <h3>Whole shelf</h3>
         <p className="muted">
-          The JSON backup is the whole app file, including theme and writing stats. Download Obsidian vault is a zip of Markdown notes you can open as a vault. The linked folder above is the live Obsidian copy. Nothing is uploaded.
+          One zip with every book: each folder has the JSON and an Obsidian vault. Import replaces the shelf on this computer.
         </p>
+        <div className="row wrap">
+          <button
+            className="btn primary"
+            disabled={shelfBusy || !story.books.length}
+            onClick={() => {
+              setShelfBusy(true);
+              setBackupMessage("");
+              void downloadShelfZip({
+                books: story.books,
+                activeId: story.bookId,
+                activeProject: project,
+              })
+                .then(() => setBackupMessage("Downloaded a zip of every book on the shelf."))
+                .catch((error: unknown) => {
+                  setBackupMessage(error instanceof Error ? error.message : "Could not build the shelf backup.");
+                })
+                .finally(() => setShelfBusy(false));
+            }}
+          >
+            {shelfBusy ? "Packing the shelf…" : "Export shelf"}
+          </button>
+          <label className="btn">
+            Import shelf
+            <input
+              hidden
+              type="file"
+              accept=".zip,application/zip"
+              disabled={shelfBusy}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (!file) return;
+                if (
+                  !confirm(
+                    "Replace every book on this shelf with the books in that zip? Your current shelf on this computer will be replaced.",
+                  )
+                ) {
+                  return;
+                }
+                setShelfBusy(true);
+                setBackupMessage("");
+                void file
+                  .arrayBuffer()
+                  .then((buffer) => importShelfZip(buffer))
+                  .then((shelf) => {
+                    story.restoreShelf(shelf);
+                    setBackupMessage(`Restored ${shelf.books.length} book${shelf.books.length === 1 ? "" : "s"} onto the shelf.`);
+                  })
+                  .catch((error: unknown) => {
+                    setBackupMessage(error instanceof Error ? error.message : "Could not restore that shelf backup.");
+                  })
+                  .finally(() => setShelfBusy(false));
+              }}
+            />
+          </label>
+        </div>
+        {backupMessage ? <p className="muted">{backupMessage}</p> : null}
       </section>
     </div>
   );

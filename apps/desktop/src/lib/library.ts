@@ -72,6 +72,14 @@ export function writeLibrary(state: { activeId: string; books: BookMeta[]; proje
   localStorage.setItem(LIBRARY_KEY, JSON.stringify({ activeId: state.activeId, books: state.books }));
 }
 
+export function writeBook(id: string, project: Project): void {
+  localStorage.setItem(bookKey(id), JSON.stringify(project));
+}
+
+export function clearBook(id: string): void {
+  localStorage.removeItem(bookKey(id));
+}
+
 export function blankProject(name: string): Project {
   const seed = createSeed();
   const { months, calendar } = buildPreset("gregorian");
