@@ -40,10 +40,16 @@ export function App() {
   const story = useStory();
   const { project } = story;
   const [railCollapsed, setRailCollapsed] = useState(() => localStorage.getItem("storymaker.rail.collapsed") === "1");
+  // Keep Vision mounted after the first visit so board music can keep playing in other rooms.
+  const [visionKept, setVisionKept] = useState(false);
 
   useEffect(() => {
     localStorage.setItem("storymaker.rail.collapsed", railCollapsed ? "1" : "0");
   }, [railCollapsed]);
+
+  useEffect(() => {
+    if (story.view === "vision") setVisionKept(true);
+  }, [story.view]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -58,18 +64,21 @@ export function App() {
     void ambience.play(project.comfort.ambience, project.comfort.ambienceVolume);
   }, [project.comfort.ambience, project.comfort.ambienceVolume]);
 
-  const view = {
-    home: <HomeView />,
-    people: <PeopleView />,
-    lore: <LoreView />,
-    threads: <ThreadsView />,
-    calendar: <CalendarView />,
-    hearth: <HearthView />,
-    storybook: <StorybookView />,
-    bonds: <BondsView />,
-    vision: <VisionView />,
-    settings: <SettingsView />,
-  }[story.view];
+  const view =
+    story.view === "vision"
+      ? null
+      : {
+          home: <HomeView />,
+          people: <PeopleView />,
+          lore: <LoreView />,
+          threads: <ThreadsView />,
+          calendar: <CalendarView />,
+          hearth: <HearthView />,
+          storybook: <StorybookView />,
+          bonds: <BondsView />,
+          vision: null,
+          settings: <SettingsView />,
+        }[story.view];
 
   return (
     <div className={["app", story.focusMode ? "is-focus" : "", railCollapsed ? "rail-collapsed" : ""].filter(Boolean).join(" ")} data-ambience={project.comfort.ambience}>
@@ -132,7 +141,14 @@ export function App() {
             Search
           </button>
         </header>
-        <div className="canvas">{view}</div>
+        <div className="canvas">
+          {view}
+          {story.view === "vision" || visionKept ? (
+            <div hidden={story.view !== "vision"}>
+              <VisionView key={story.bookId} />
+            </div>
+          ) : null}
+        </div>
       </main>
       <SearchDialog />
       {story.summaryOpen ? (
