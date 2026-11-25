@@ -1,4 +1,5 @@
 import { createSeed } from "../seed";
+import { normalizeCalendar } from "./calendar";
 import { DEFAULT_BOND_KINDS, SCENE_STATUSES, type BondKind, type CalendarMonth, type Character, type Comfort, type LoreEntry, type ManuscriptFont, type Project, type ReaderSkin, type Scene, type SceneStatus, type TrashedScene, type VisionBoard, type VisionKind } from "../types";
 
 const VISION_KINDS: VisionKind[] = ["note", "person", "lore", "thread", "scene", "photo", "music"];
@@ -65,11 +66,21 @@ export function normalizeProject(project: Project): Project {
   const trash: TrashedScene[] = (project.trash ?? [])
     .map((entry) => normalizeTrashedScene(entry))
     .filter((entry): entry is TrashedScene => Boolean(entry));
-  const { mood: _legacyMood, ...rest } = project as Project & { mood?: unknown };
+  const legacy = project as Project & { mood?: unknown; eraName?: string; year?: number };
+  const { mood: _legacyMood, eraName: _legacyEra, year: _legacyYear, ...rest } = legacy;
+  const finalMonths = months.length ? months : [{ id: "month-0", name: "Firstmonth", days: 28 }];
   return {
     ...rest,
     comfort: normalizeComfort(project.comfort),
-    months: months.length ? months : [{ id: "month-0", name: "Firstmonth", days: 28 }],
+    months: finalMonths,
+    calendar: normalizeCalendar(project.calendar, finalMonths, { eraName: legacy.eraName, year: legacy.year }),
+    events: (project.events ?? []).map((event) => ({
+      ...event,
+      monthIndex: Math.min(Math.max(0, Math.trunc(Number(event.monthIndex)) || 0), finalMonths.length - 1),
+      day: Math.max(1, Math.trunc(Number(event.day)) || 1),
+      year: Number.isFinite(event.year) ? Math.trunc(event.year) : 1,
+      undated: event.undated ? true : undefined,
+    })),
     characters,
     lore,
     bondKinds,

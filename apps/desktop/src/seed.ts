@@ -8,8 +8,6 @@ export function createSeed(): Project {
     id: "lantern-tide",
     name: "Lantern and Tide",
     tagline: "A coastal story about maps, promises, and a light that refuses to go out.",
-    eraName: "Tideglass Year",
-    year: 418,
     months: [
       { id: "m-ember", name: "Emberwake", days: 28 },
       { id: "m-salt", name: "Saltmoon", days: 28 },
@@ -22,6 +20,28 @@ export function createSeed(): Project {
       { id: "m-still", name: "Stillwater", days: 28 },
       { id: "m-kindle", name: "Kindleve", days: 28 },
     ],
+    calendar: {
+      preset: "custom",
+      leapMonthId: "m-kindle",
+      leap: { kind: "every", every: 5 },
+      weekdays: ["Firstlight", "Tideday", "Netday", "Mendday", "Bellday", "Restday"],
+      weekStart: 0,
+      epochWeekday: 0,
+      eras: [
+        { id: "era-before", name: "Before the Glass", short: "BG", place: "after", start: 0, counts: "down" },
+        { id: "era-tideglass", name: "Tideglass Year", short: "TY", place: "after", start: 1, counts: "up" },
+      ],
+      showEra: true,
+      now: { year: 418, monthIndex: 1, day: 12 },
+      holidays: [
+        { id: "h-lamp", name: "Lamp Night", monthIndex: 3, day: 1, kind: "holiday" },
+        { id: "h-second-bell", name: "Longest Bell", monthIndex: 5, day: 14, kind: "holiday" },
+        { id: "h-bright", name: "Bright tide", monthIndex: 0, day: 1, kind: "season" },
+        { id: "h-grey", name: "Grey tide", monthIndex: 5, day: 1, kind: "season" },
+      ],
+      moon: { on: true, name: "Pale Lamp", cycle: 24, newMoon: { year: 418, monthIndex: 0, day: 3 } },
+      format: "long",
+    },
     categories: ["Places", "Ecology", "Objects", "Houses", "Customs"],
     characters: [
       {

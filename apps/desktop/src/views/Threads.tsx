@@ -1,4 +1,5 @@
 import { Field } from "../components/ui";
+import { eventDate, reckonProject } from "../lib/calendar";
 import { useStory } from "../lib/store";
 import type { ThreadEvent } from "../types";
 
@@ -12,7 +13,12 @@ export function ThreadsView() {
     story.saveEvent({ ...event, ...patch });
   };
 
-  const sorted = [...story.project.events].sort((a, b) => a.monthIndex - b.monthIndex || a.day - b.day);
+  const reckoner = reckonProject(story.project);
+  const sorted = [...story.project.events].sort((a, b) => {
+    if (a.undated !== b.undated) return a.undated ? 1 : -1;
+    return reckoner.compare(eventDate(a), eventDate(b));
+  });
+  const shownYear = event ? reckoner.eraFor(event.year) : null;
 
   return (
     <div className="workspace">
@@ -25,17 +31,12 @@ export function ThreadsView() {
         >
           Add an event
         </button>
-        {sorted.map((item) => {
-          const month = story.project.months[item.monthIndex]?.name ?? "Month";
-          return (
-            <button key={item.id} className={item.id === event?.id ? "list-item on" : "list-item"} onClick={() => story.selectEvent(item.id)}>
-              <strong>{item.title}</strong>
-              <span>
-                {item.day} {month}
-              </span>
-            </button>
-          );
-        })}
+        {sorted.map((item) => (
+          <button key={item.id} className={item.id === event?.id ? "list-item on" : "list-item"} onClick={() => story.selectEvent(item.id)}>
+            <strong>{item.title}</strong>
+            <span>{item.undated ? "No date yet" : reckoner.formatDate(eventDate(item), "short-era")}</span>
+          </button>
+        ))}
       </aside>
       {event ? (
         <section className="editor card">
@@ -48,7 +49,14 @@ export function ThreadsView() {
           <Field label="Title">
             <input value={event.title} onChange={(e) => update({ title: e.target.value })} />
           </Field>
-          <div className="form-grid">
+          <div className="row wrap thread-date-line">
+            <span className="muted">{event.undated ? "Waiting in the Calendar's list of undated threads." : reckoner.formatDate(eventDate(event))}</span>
+            <label className="row thread-undated">
+              <input type="checkbox" checked={Boolean(event.undated)} onChange={(e) => update({ undated: e.target.checked || undefined })} />
+              No date yet
+            </label>
+          </div>
+          <div className="form-grid" hidden={Boolean(event.undated)}>
             <Field label="Month">
               <select value={event.monthIndex} onChange={(e) => update({ monthIndex: Number(e.target.value) })}>
                 {story.project.months.map((month, index) => (
@@ -59,10 +67,36 @@ export function ThreadsView() {
               </select>
             </Field>
             <Field label="Day">
-              <input type="number" min={1} max={40} value={event.day} onChange={(e) => update({ day: Number(e.target.value) })} />
+              <input
+                type="number"
+                min={1}
+                max={reckoner.monthDays(event.year, event.monthIndex)}
+                value={event.day}
+                onChange={(e) => update({ day: Math.min(Math.max(1, Number(e.target.value) || 1), reckoner.monthDays(event.year, event.monthIndex)) })}
+              />
             </Field>
             <Field label="Year">
-              <input type="number" value={event.year} onChange={(e) => update({ year: Number(e.target.value) })} />
+              <div className="row">
+                <input
+                  type="number"
+                  min={1}
+                  value={shownYear?.shown ?? event.year}
+                  onChange={(e) => update({ year: reckoner.toTimelineYear(Math.max(1, Number(e.target.value) || 1), shownYear?.era?.id) })}
+                />
+                {story.project.calendar.eras.length > 1 ? (
+                  <select
+                    aria-label="Era"
+                    value={shownYear?.era?.id ?? ""}
+                    onChange={(e) => update({ year: reckoner.toTimelineYear(shownYear?.shown ?? 1, e.target.value) })}
+                  >
+                    {story.project.calendar.eras.map((era) => (
+                      <option key={era.id} value={era.id}>
+                        {era.short || era.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+              </div>
             </Field>
           </div>
           <Field label="What happened">

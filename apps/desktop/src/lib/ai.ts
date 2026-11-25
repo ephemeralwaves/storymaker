@@ -1,3 +1,4 @@
+import { describeCalendar, eventDateLabel, storyNowLabel } from "./calendar";
 import type { CustomPlugin, Project } from "../types";
 import { countWords } from "./util";
 
@@ -73,12 +74,11 @@ const SCENE_PACKET_LIMIT = 12000;
 const NOVEL_PACKET_LIMIT = 120000;
 
 function formatEventLine(project: Project, event: Project["events"][number]): string {
-  const month = project.months[event.monthIndex]?.name ?? "Month";
   const people = event.characterIds
     .map((id) => project.characters.find((character) => character.id === id)?.name)
     .filter(Boolean)
     .join(", ");
-  return `- ${event.title} (${event.day} ${month}, year ${event.year})${people ? ` — ${people}` : ""}: ${event.summary}`;
+  return `- ${event.title} (${eventDateLabel(project, event, "long")})${people ? ` — ${people}` : ""}: ${event.summary}`;
 }
 
 function buildFullNovelPacket(project: Project): string {
@@ -86,8 +86,7 @@ function buildFullNovelPacket(project: Project): string {
   const bondKinds = new Map(project.bondKinds.map((kind) => [kind.id, kind.name]));
   const lines = [
     `Story: ${project.name} — ${project.tagline}`,
-    `Calendar: ${project.eraName} ${project.year}`,
-    `Months: ${project.months.map((month) => `${month.name} (${month.days} days)`).join("; ") || "(none)"}`,
+    describeCalendar(project),
     "",
     "People:",
     ...(project.characters.length
@@ -163,7 +162,7 @@ export function buildWorldContext(project: Project, sceneId: string | null): Wor
   const events = project.events.slice(0, 6);
   const lines = [
     `Story: ${project.name} — ${project.tagline}`,
-    `Calendar: ${project.eraName} ${project.year}`,
+    `Now in the story: ${storyNowLabel(project)}`,
     "",
     "People:",
     ...people.map((c) => `- ${c.name} (${c.role}, ${c.origin}). ${c.summary} Habits: ${c.habits}`),

@@ -1,3 +1,4 @@
+import { storyNowLabel } from "./calendar";
 import type { Project, ReaderSkin } from "../types";
 
 export type StoryBlock =
@@ -55,7 +56,7 @@ export function buildStoryBlocks(project: Project, skin: ReaderSkin): StoryBlock
     kind: "title",
     text: project.name || "Untitled story",
     tagline: project.tagline ?? "",
-    era: [project.eraName, project.year].filter((part) => part !== undefined && part !== null && part !== "").join(" "),
+    era: storyNowLabel(project),
     chapterTitle: "Title page",
   });
 

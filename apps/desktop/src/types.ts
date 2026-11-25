@@ -64,7 +64,10 @@ export interface ThreadEvent {
   summary: string;
   monthIndex: number;
   day: number;
+  /** Continuous timeline year (see CalendarEra). */
   year: number;
+  /** True while the thread waits in the Calendar's "Not on the calendar yet" list. */
+  undated?: boolean;
   characterIds: string[];
 }
 
@@ -123,6 +126,57 @@ export interface CalendarMonth {
   id: string;
   name: string;
   days: number;
+  /** Abbreviation for short dates, e.g. "Nov" or "พ.ย.". Falls back to the first three letters. */
+  short?: string;
+}
+
+/** A way of counting years. Year numbers on threads are continuous timeline years; eras only change how they read. */
+export interface CalendarEra {
+  id: string;
+  name: string;
+  short: string;
+  /** Whether the short form is written before the number ("พ.ศ. 2569") or after it ("2026 CE"). */
+  place: "before" | "after";
+  /** Timeline year that is year 1 of this era. Ignored for the one era that counts down. */
+  start: number;
+  counts: "up" | "down";
+}
+
+export interface CalendarHoliday {
+  id: string;
+  name: string;
+  monthIndex: number;
+  day: number;
+  kind: "holiday" | "season";
+}
+
+export interface CalendarDate {
+  year: number;
+  monthIndex: number;
+  day: number;
+}
+
+export type LeapKind = "gregorian" | "every" | "none";
+export type DateFormat = "long" | "us" | "short-era" | "numeric";
+export type CalendarPresetId = "gregorian" | "renamed" | "thai" | "blank" | "custom";
+
+export interface CalendarSettings {
+  preset: CalendarPresetId;
+  /** Month that gains a day in leap years, or null for no leap day. */
+  leapMonthId: string | null;
+  leap: { kind: LeapKind; every: number };
+  /** Day names; their count is the length of the week. Empty means days are not named. */
+  weekdays: string[];
+  weekStart: number;
+  /** Weekday index of timeline year 1, first month, day 1. */
+  epochWeekday: number;
+  eras: CalendarEra[];
+  showEra: boolean;
+  /** "Now" in the story: where the Calendar opens and what Home and the Storybook use. */
+  now: CalendarDate;
+  holidays: CalendarHoliday[];
+  moon: { on: boolean; name: string; cycle: number; newMoon: CalendarDate };
+  format: DateFormat;
 }
 
 export type VisionKind = "note" | "person" | "lore" | "thread" | "scene" | "photo" | "music";
@@ -153,9 +207,8 @@ export interface Project {
   id: string;
   name: string;
   tagline: string;
-  eraName: string;
-  year: number;
   months: CalendarMonth[];
+  calendar: CalendarSettings;
   categories: string[];
   characters: Character[];
   relationships: Relationship[];

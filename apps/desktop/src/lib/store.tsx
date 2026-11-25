@@ -4,8 +4,11 @@ import { normalizeProject } from "./normalize";
 import { createSeed } from "../seed";
 import { saveTrack } from "./tracks";
 import { markVaultReady, readLinkedProject, setVaultBook, writeLinkedProject } from "./vaultFolder";
+import { buildPreset, reckon, remapMonths } from "./calendar";
 import type {
   CalendarMonth,
+  CalendarPresetId,
+  CalendarSettings,
   Character,
   LoreEntry,
   Project,
@@ -63,6 +66,9 @@ interface StoryApi {
   addMonth: () => void;
   updateMonth: (index: number, patch: Partial<CalendarMonth>) => void;
   removeMonth: (index: number) => void;
+  moveMonth: (index: number, delta: -1 | 1) => void;
+  setCalendar: (patch: Partial<CalendarSettings>) => void;
+  applyCalendarPreset: (id: Exclude<CalendarPresetId, "custom">) => void;
   addVisionCard: (card: Omit<VisionCard, "id">) => void;
   moveVisionCard: (id: string, x: number, y: number) => void;
   updateVisionCard: (id: string, patch: Partial<VisionCard>) => void;
@@ -389,9 +395,9 @@ export function StoryProvider({ children }: { children: ReactNode }) {
         id: uid("event"),
         title: "New event",
         summary: "",
-        monthIndex: 0,
-        day: 1,
-        year: project.year,
+        monthIndex: project.calendar.now.monthIndex,
+        day: project.calendar.now.day,
+        year: project.calendar.now.year,
         characterIds: [],
         ...partial,
       };
@@ -402,25 +408,49 @@ export function StoryProvider({ children }: { children: ReactNode }) {
     addMonth: () =>
       patchProject((current) => ({
         ...current,
-        months: [...current.months, { id: uid("month"), name: "New month", days: 28 }],
+        months: [...current.months, { id: uid("month"), name: "New month", days: 30 }],
+        calendar: { ...current.calendar, preset: "custom" },
       })),
     updateMonth: (index, patch) =>
-      patchProject((current) => ({
-        ...current,
-        months: current.months.map((month, i) => (i === index ? { ...month, ...patch, id: month.id } : month)),
-      })),
+      patchProject((current) => {
+        const months = current.months.map((month, i) => (i === index ? { ...month, ...patch, id: month.id } : month));
+        const next = remapMonths(current, months);
+        return { ...next, calendar: { ...next.calendar, preset: "custom" } };
+      }),
     removeMonth: (index) =>
       patchProject((current) => {
         if (current.months.length <= 1) return current;
-        const months = current.months.filter((_, i) => i !== index);
+        const next = remapMonths(current, current.months.filter((_, i) => i !== index));
+        return { ...next, calendar: { ...next.calendar, preset: "custom" } };
+      }),
+    moveMonth: (index, delta) =>
+      patchProject((current) => {
+        const target = index + delta;
+        if (target < 0 || target >= current.months.length) return current;
+        const months = [...current.months];
+        [months[index], months[target]] = [months[target], months[index]];
+        const next = remapMonths(current, months);
+        return { ...next, calendar: { ...next.calendar, preset: "custom" } };
+      }),
+    setCalendar: (patch) =>
+      patchProject((current) => {
+        const calendar = { ...current.calendar, ...patch };
+        if (!("preset" in patch)) calendar.preset = "custom";
+        const r = reckon(current.months, calendar);
+        calendar.now = r.clamp(calendar.now);
+        calendar.weekStart = Math.min(calendar.weekStart, Math.max(0, calendar.weekdays.length - 1));
+        calendar.epochWeekday = Math.min(calendar.epochWeekday, Math.max(0, calendar.weekdays.length - 1));
+        return { ...current, calendar };
+      }),
+    applyCalendarPreset: (id) =>
+      patchProject((current) => {
+        const { months, calendar } = buildPreset(id, id === "blank" ? undefined : current.calendar.preset === "custom" ? undefined : current.calendar.now);
+        const r = reckon(months, calendar);
         const events = current.events.map((event) => {
-          let monthIndex = event.monthIndex;
-          if (monthIndex === index) monthIndex = Math.max(0, index - 1);
-          else if (monthIndex > index) monthIndex -= 1;
-          const days = months[monthIndex]?.days ?? 28;
-          return { ...event, monthIndex, day: Math.min(event.day, days) };
+          const date = r.clamp({ year: event.year, monthIndex: event.monthIndex, day: event.day });
+          return { ...event, monthIndex: date.monthIndex, day: date.day };
         });
-        return { ...current, months, events };
+        return { ...current, months, calendar, events };
       }),
     addVisionCard: (card) =>
       patchProject((current) => ({

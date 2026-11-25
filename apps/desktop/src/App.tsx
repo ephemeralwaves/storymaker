@@ -1,3 +1,4 @@
+import { storyNowLabel } from "./lib/calendar";
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { SearchDialog } from "./components/Search";
 import { Lumen } from "./components/ui";
@@ -32,7 +33,7 @@ const NAV: { id: ViewId; label: string; hint: string; group?: string; icon: Reac
   { id: "bonds", group: "World", label: "Bonds", hint: "People on a board. Drag a dot to link two of them.", icon: <NavIcon><circle cx="7" cy="12" r="2.2" /><circle cx="17" cy="8" r="2.2" /><circle cx="17" cy="16" r="2.2" /><path d="M9 11.2 14.8 8.8M9 12.8l5.8 2.4" /></NavIcon> },
   { id: "vision", group: "World", label: "Vision", hint: "A canvas for notes, people, photos, and music.", icon: <NavIcon><rect x="4" y="5" width="16" height="14" rx="2" /><path d="M8 15l2.5-3 2 2 2-2.5L18 15" /></NavIcon> },
   { id: "threads", group: "Time", label: "Threads", hint: "Events dated on the story calendar and tagged with people.", icon: <NavIcon><path d="M8 6h11" /><path d="M5 12h14" /><path d="M8 18h11" /><circle cx="5" cy="6" r="1.2" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.2" fill="currentColor" stroke="none" /><circle cx="5" cy="18" r="1.2" fill="currentColor" stroke="none" /></NavIcon> },
-  { id: "calendar", group: "Time", label: "Calendar", hint: "Named months. A day opens the thread stored there.", icon: <NavIcon><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4M16 3v4M4 10h16" /></NavIcon> },
+  { id: "calendar", group: "Time", label: "Calendar", hint: "The story's calendar: months, eras, weekdays and holidays, with threads on their days.", icon: <NavIcon><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4M16 3v4M4 10h16" /></NavIcon> },
   { id: "settings", group: "Settings", label: "Settings", hint: "Themes, type, local model, the vault folder, and a JSON backup.", icon: <NavIcon><circle cx="12" cy="12" r="3" /><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" /></NavIcon> },
 ];
 
@@ -134,7 +135,7 @@ export function App() {
       <main>
         <header className="topbar">
           <div>
-            <p className="eyebrow">{project.eraName} {project.year}</p>
+            <p className="eyebrow">{storyNowLabel(project)}</p>
             <h1>{project.name}</h1>
           </div>
           <button className="btn" onClick={() => story.setSearchOpen(true)}>
