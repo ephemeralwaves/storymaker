@@ -282,9 +282,6 @@ export function SettingsView() {
           >
             Load from linked folder
           </button>
-          <button className="btn" onClick={() => void downloadVaultZip(project)}>
-            Download vault (.zip)
-          </button>
           <label className="btn">
             Import vault folder
             <input
@@ -358,6 +355,9 @@ export function SettingsView() {
               }}
             />
           </label>
+          <button className="btn" onClick={() => void downloadVaultZip(project)}>
+            Download Obsidian vault
+          </button>
           <button
             className="btn danger"
             onClick={() => {
@@ -368,7 +368,7 @@ export function SettingsView() {
           </button>
         </div>
         <p className="muted">
-          The JSON backup is the whole app file, including theme and writing stats. The vault folder is the Obsidian copy. Nothing is uploaded.
+          The JSON backup is the whole app file, including theme and writing stats. Download Obsidian vault is a zip of Markdown notes you can open as a vault. The linked folder above is the live Obsidian copy. Nothing is uploaded.
         </p>
       </section>
     </div>
