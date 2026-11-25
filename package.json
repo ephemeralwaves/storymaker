@@ -1,0 +1,9 @@
+{
+  "name": "storymaker",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev --prefix apps/desktop",
+    "build": "npm run build --prefix apps/desktop",
+    "tauri": "npm run tauri --prefix apps/desktop"
+  }
+}
