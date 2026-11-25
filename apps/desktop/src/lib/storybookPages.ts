@@ -1,11 +1,41 @@
-import type { Project } from "../types";
+import type { Project, ReaderSkin } from "../types";
 
 export type StoryBlock =
-  | { key: string; kind: "kicker"; text: string; chapterStart: true; chapterTitle: string }
-  | { key: string; kind: "chapter"; text: string; chapterTitle: string }
+  | { key: string; kind: "title"; text: string; tagline: string; era: string; chapterTitle: string }
+  | { key: string; kind: "opener"; number: string; text: string; chapterStart: true; chapterTitle: string }
   | { key: string; kind: "ornament"; text: string; flourish?: boolean; chapterTitle: string }
   | { key: string; kind: "para"; text: string; dropCap?: boolean; chapterTitle: string }
-  | { key: string; kind: "empty"; text: string; chapterTitle: string };
+  | { key: string; kind: "empty"; text: string; chapterTitle: string }
+  | { key: string; kind: "end"; text: string; chapterTitle: string };
+
+/** Blocks that always fill a page of their own. */
+export function standsAlone(block: StoryBlock): boolean {
+  return block.kind === "title" || block.kind === "opener";
+}
+
+const ORDINALS = [
+  "First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth",
+  "Eleventh", "Twelfth", "Thirteenth", "Fourteenth", "Fifteenth", "Sixteenth", "Seventeenth", "Eighteenth", "Nineteenth", "Twentieth",
+];
+
+export function chapterNumberLabel(index: number): string {
+  return ORDINALS[index] ? `Chapter the ${ORDINALS[index]}` : `Chapter ${index + 1}`;
+}
+
+/** "Chapter 1 — Low lamps" reads as "Low lamps" under a "Chapter the First" label. */
+export function chapterDisplayTitle(title: string): string {
+  const trimmed = title.replace(/^\s*chapter\s+[\w-]+\s*[—–:.\-]\s*/i, "").trim();
+  return trimmed || title.trim() || "Untitled chapter";
+}
+
+/** Printed-book quotes: straight quotes and apostrophes become curly ones. */
+export function smartQuotes(text: string): string {
+  return text
+    .replace(/(^|[\s(\[{\u2014-])"/g, "$1\u201c")
+    .replace(/"/g, "\u201d")
+    .replace(/(^|[\s(\[{\u2014-])'/g, "$1\u2018")
+    .replace(/'/g, "\u2019");
+}
 
 function paragraphs(body: string): string[] {
   return body
@@ -15,9 +45,19 @@ function paragraphs(body: string): string[] {
     .filter(Boolean);
 }
 
-export function buildStoryBlocks(project: Project, illuminated: boolean): StoryBlock[] {
+export function buildStoryBlocks(project: Project, skin: ReaderSkin): StoryBlock[] {
   const chapters = project.chapters.slice().sort((a, b) => a.order - b.order);
   const blocks: StoryBlock[] = [];
+  const dropCaps = skin !== "glow";
+
+  blocks.push({
+    key: "title-page",
+    kind: "title",
+    text: project.name || "Untitled story",
+    tagline: project.tagline ?? "",
+    era: [project.eraName, project.year].filter((part) => part !== undefined && part !== null && part !== "").join(" "),
+    chapterTitle: "Title page",
+  });
 
   chapters.forEach((chapter, chapterIndex) => {
     const scenes = project.scenes
@@ -25,16 +65,11 @@ export function buildStoryBlocks(project: Project, illuminated: boolean): StoryB
       .sort((a, b) => a.order - b.order);
 
     blocks.push({
-      key: `${chapter.id}-kicker`,
-      kind: "kicker",
-      text: `Chapter ${chapterIndex + 1}`,
+      key: `${chapter.id}-opener`,
+      kind: "opener",
+      number: chapterNumberLabel(chapterIndex),
+      text: chapterDisplayTitle(chapter.title),
       chapterStart: true,
-      chapterTitle: chapter.title,
-    });
-    blocks.push({
-      key: `${chapter.id}-title`,
-      kind: "chapter",
-      text: chapter.title,
       chapterTitle: chapter.title,
     });
 
@@ -48,6 +83,7 @@ export function buildStoryBlocks(project: Project, illuminated: boolean): StoryB
       return;
     }
 
+    let firstPara = true;
     scenes.forEach((scene, sceneIndex) => {
       if (sceneIndex > 0 || scene.title) {
         blocks.push({
@@ -72,13 +108,17 @@ export function buildStoryBlocks(project: Project, illuminated: boolean): StoryB
         blocks.push({
           key: `${scene.id}-p${partIndex}`,
           kind: "para",
-          text: part,
-          dropCap: illuminated && sceneIndex === 0 && partIndex === 0,
+          text: smartQuotes(part),
+          dropCap: dropCaps && firstPara,
           chapterTitle: chapter.title,
         });
+        firstPara = false;
       });
     });
   });
+
+  const last = chapters[chapters.length - 1];
+  blocks.push({ key: "the-end", kind: "end", text: "The story so far ends here.", chapterTitle: last?.title ?? "" });
 
   return blocks;
 }
@@ -124,7 +164,11 @@ export function paginateBlocks(
   };
 
   for (const block of blocks) {
-    if ("chapterStart" in block && block.chapterStart) flush();
+    if (standsAlone(block)) {
+      flush();
+      pages.push([block]);
+      continue;
+    }
 
     if (block.kind !== "para") {
       const next = [...current, block];

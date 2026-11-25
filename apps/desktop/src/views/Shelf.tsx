@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { useStory } from "../lib/store";
 
-const LEATHER = ["#7a2e2a", "#1f4d3a", "#1d3e66", "#6a4324", "#4c2d55", "#8d4b2a", "#24342e", "#6e2f3c"];
-const WIDTHS = [46, 54, 42, 62, 50, 58, 44, 66];
-const HEIGHTS = [176, 196, 168, 188, 180, 204, 172, 192];
+import { HEIGHTS, LEATHER, WIDTHS } from "../lib/leather";
 
 function spineFont(title: string, width: number, height: number): number {
   const availableH = Math.max(48, height - 40);
@@ -16,6 +14,19 @@ function spineFont(title: string, width: number, height: number): number {
     size -= 0.5;
   }
   return size;
+}
+
+function ShelfLantern() {
+  return (
+    <svg className="shelf-lantern" viewBox="0 0 46 74" aria-hidden="true">
+      <path d="M23 4v6M15 10h16l-2 6H17z" fill="none" stroke="currentColor" strokeWidth="2" />
+      <rect x="13" y="16" width="20" height="34" rx="4" fill="rgba(230,189,106,.18)" stroke="currentColor" strokeWidth="2" />
+      <path d="M23 26c3 4 5 6 5 9a5 5 0 0 1-10 0c0-3 2-5 5-9z" fill="#fbe6a8" />
+      <path d="M10 50h26l-3 8H13z" fill="currentColor" />
+      <path d="M6 70h34" stroke="currentColor" strokeWidth="3" />
+      <path d="M17 58v12M29 58v12" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
 }
 
 export function ShelfView() {
@@ -39,6 +50,7 @@ export function ShelfView() {
       <div className="bookcase">
         {rows.map((row, rowIndex) => (
           <div key={rowIndex} className="shelf-plank">
+            {rowIndex === 0 ? <ShelfLantern /> : null}
             {row.map((book) => (
               <div
                 key={book.id}

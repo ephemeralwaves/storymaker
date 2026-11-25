@@ -219,7 +219,7 @@ export function createSeed(): Project {
       fontScale: 1,
       manuscriptScale: 1.12,
       manuscriptFont: "serif",
-      readerSkin: "glow",
+      readerSkin: "gilded",
       reducedMotion: false,
       warmLight: false,
       clearType: false,

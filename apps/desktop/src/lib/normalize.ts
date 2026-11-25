@@ -19,7 +19,7 @@ function normalizeVision(vision: VisionBoard | undefined): VisionBoard {
 }
 
 const MANUSCRIPT_FONTS: ManuscriptFont[] = ["serif", "sans", "clear"];
-const READER_SKINS: ReaderSkin[] = ["glow", "illuminated"];
+const READER_SKINS: ReaderSkin[] = ["gilded", "illuminated", "glow"];
 
 function normalizeComfort(comfort: Comfort | undefined): Comfort {
   const base = createSeed().comfort;
@@ -32,7 +32,7 @@ function normalizeComfort(comfort: Comfort | undefined): Comfort {
     customPlugins: comfort?.customPlugins ?? base.customPlugins,
     manuscriptScale: Number.isFinite(scale) ? Math.min(1.6, Math.max(0.7, scale)) : base.manuscriptScale,
     manuscriptFont: MANUSCRIPT_FONTS.includes(font as ManuscriptFont) ? (font as ManuscriptFont) : "serif",
-    readerSkin: READER_SKINS.includes(skin as ReaderSkin) ? (skin as ReaderSkin) : "glow",
+    readerSkin: READER_SKINS.includes(skin as ReaderSkin) ? (skin as ReaderSkin) : "gilded",
   };
 }
 
