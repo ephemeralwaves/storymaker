@@ -4,7 +4,7 @@ import { useStory } from "../lib/store";
 import { HEIGHTS, LEATHER, WIDTHS } from "../lib/leather";
 
 function spineFont(title: string, width: number, height: number): number {
-  const availableH = Math.max(48, height - 40);
+  const availableH = Math.max(48, height - 56);
   const availableW = Math.max(18, width - 12);
   let size = 16;
   while (size > 9) {
@@ -106,9 +106,6 @@ export function ShelfView() {
           </div>
         ))}
       </div>
-      <p className="shelf-note">
-        Each book is its own story. These stay inside StoryMaker on this computer until you link a vault folder from Settings.
-      </p>
     </section>
   );
 }
