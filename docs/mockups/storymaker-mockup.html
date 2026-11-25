@@ -1,0 +1,1163 @@
+<title>StoryMaker Redesign Mockup</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=IM+Fell+English:ital@0;1&family=Nunito:wght@400;600;700&family=Atkinson+Hyperlegible&display=swap">
+<style>
+/* Layout: a sticky tab bar over three views. Storybook is a full-bleed velvet stage with a 3D book;
+   Studio is an app window mock; Ideas is a ranked list that the Studio's numbered pins point into.
+   One committed dusk look (it maps onto StoryMaker's Royal Plum theme), so no light variant. */
+:root {
+  color-scheme: dark;
+  --night: #120d1d;
+  --velvet: #1b1429;
+  --panel: #231a35;
+  --panel-2: #2c2142;
+  --line: #3d3058;
+  --ink: #f2e8d7;
+  --muted: #b3a5c6;
+  --gold: #e6bd6a;
+  --gold-hi: #fbe6a8;
+  --gold-lo: #8f6526;
+  --rose: #d77a97;
+  --oxblood: #5a1630;
+  --paper: #f5ead2;
+  --paper-edge: #e4d3b0;
+  --paper-ink: #3b2717;
+  --paper-muted: #8a6c4c;
+  --gilt: linear-gradient(135deg, #7a5420 0%, #f3d58a 28%, #b8862f 50%, #fbe7a6 72%, #8a6224 100%);
+  --ui: "Nunito", "Segoe UI", system-ui, sans-serif;
+  --display: "Fraunces", Georgia, serif;
+  --fairy: "Cinzel Decorative", "Fraunces", Georgia, serif;
+  --book-font: "IM Fell English", "Fraunces", Georgia, serif;
+  --book-size: 15.5px;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  background: var(--night);
+  color: var(--ink);
+  font-family: var(--ui);
+  font-size: 15px;
+  line-height: 1.5;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--night); }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* ---------- top bar ---------- */
+.topbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  background: color-mix(in srgb, var(--night) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.topbar-in {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding-block: 10px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  max-width: 1280px; margin: 0 auto;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-size: 1.15rem; font-weight: 600; }
+.brand small { font-family: var(--ui); font-weight: 600; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.tabs { display: flex; gap: 4px; margin-left: auto; background: var(--velvet); border: 1px solid var(--line); border-radius: 999px; padding: 4px; }
+.tabs a {
+  color: var(--muted); text-decoration: none; padding: 6px 14px; border-radius: 999px; font-weight: 600; font-size: .9rem;
+}
+.tabs a[aria-current="page"] { background: var(--panel-2); color: var(--gold-hi); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 35%, transparent); }
+
+.view[hidden] { display: none !important; }
+
+/* ---------- STORYBOOK STAGE ---------- */
+.stage {
+  position: relative; overflow: hidden;
+  min-height: calc(100vh - 60px);
+  background:
+    radial-gradient(ellipse 55% 45% at 50% 46%, rgba(230, 189, 106, .16), transparent 70%),
+    radial-gradient(ellipse 120% 90% at 50% 40%, #241a3b 0%, #150f22 55%, #0b0812 100%);
+  display: flex; flex-direction: column; align-items: center;
+  padding-block: 28px 24px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.stage::after { /* velvet curtain folds at the edges */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg, rgba(0,0,0,.18) 0 18px, rgba(255,255,255,.015) 18px 40px, rgba(0,0,0,.12) 40px 64px);
+  -webkit-mask: linear-gradient(90deg, #000 0, transparent 14%, transparent 86%, #000 100%);
+          mask: linear-gradient(90deg, #000 0, transparent 14%, transparent 86%, #000 100%);
+}
+#motes { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+.stage-head { position: relative; z-index: 2; text-align: center; margin-bottom: 18px; transition: opacity .6s; }
+.stage-head .eyebrow { font-size: .72rem; letter-spacing: .22em; text-transform: uppercase; color: var(--gold); }
+.stage-head h1 { font-family: var(--fairy); font-weight: 400; font-size: clamp(1.4rem, 3.4vw, 2.1rem); margin: .2em 0 0; text-wrap: balance; }
+.stage.is-open .stage-head { opacity: 0; pointer-events: none; height: 0; margin: 0; overflow: hidden; }
+
+.sizer { position: relative; z-index: 2; }
+.book-wrap { width: 760px; height: 580px; transform-origin: top left; position: absolute; top: 0; left: 0; }
+.book {
+  position: absolute; left: 20px; top: 26px; width: 720px; height: 520px;
+  perspective: 2600px;
+  transform: translateX(-180px);
+  transition: transform 1.7s cubic-bezier(.6,.05,.25,1);
+}
+.book.open { transform: translateX(0); }
+.book::before { /* candle glow pooled under the book */
+  content: ""; position: absolute; left: 50%; bottom: -40px; width: 120%; height: 120px; transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(230,189,106,.25), transparent 65%); filter: blur(8px);
+  animation: glow 5s ease-in-out infinite alternate;
+}
+.book:not(.open)::before { left: 75%; width: 70%; }
+@keyframes glow { from { opacity: .65; } to { opacity: 1; } }
+
+/* boards */
+.board {
+  position: absolute; top: -10px; height: 540px; width: 372px; border-radius: 4px 12px 12px 4px;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(255,255,255,.08), transparent 50%),
+    linear-gradient(160deg, #6b1c3a, var(--oxblood) 55%, #3a0d1f);
+  box-shadow: 0 30px 60px rgba(0,0,0,.55), inset 0 0 0 1px rgba(0,0,0,.4);
+}
+.board.right { left: 358px; }
+/* page block thickness, visible on the fore-edge */
+.block {
+  position: absolute; left: 360px; top: -4px; width: 366px; height: 528px; border-radius: 0 6px 6px 0;
+  background: repeating-linear-gradient(90deg, var(--paper-edge) 0 1px, #cdb88f 1px 2px);
+  box-shadow: inset -2px 0 0 #b9975a;
+}
+.block::after { content: ""; position: absolute; right: 0; top: 0; bottom: 0; width: 5px; background: var(--gilt); border-radius: 0 6px 6px 0; opacity: .9; }
+
+/* pages */
+.pg {
+  position: absolute; top: 0; width: 360px; height: 520px; overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.35), transparent 70%),
+    linear-gradient(180deg, #f8efd9, var(--paper));
+  color: var(--paper-ink);
+  font-family: var(--book-font); font-size: var(--book-size); line-height: 1.62;
+}
+.pg::before { /* paper fibre */
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .35;
+  background-image: radial-gradient(rgba(120,80,30,.12) 1px, transparent 1.2px);
+  background-size: 5px 5px;
+}
+.pg.l { left: 0; border-radius: 6px 2px 2px 6px; box-shadow: inset -26px 0 30px -18px rgba(70,40,10,.45); }
+.pg.r { left: 360px; border-radius: 2px 6px 6px 2px; box-shadow: inset 26px 0 30px -18px rgba(70,40,10,.45); }
+#pageL { z-index: 3; transition: opacity .3s; }
+#pageR { z-index: 2; }
+#pageL.is-off { opacity: 0; }
+.book:not(.open) #pageL { opacity: 0; }
+.pg-inner { position: relative; height: 100%; padding: 46px 42px 54px; display: flex; flex-direction: column; }
+.folio {
+  position: absolute; bottom: 20px; left: 0; right: 0; text-align: center;
+  font-family: var(--display); font-variant: small-caps; letter-spacing: .12em; font-size: 12px; color: var(--paper-muted);
+}
+.folio:not(:empty)::before, .folio:not(:empty)::after { content: "·"; margin: 0 .6em; color: #b98d3e; }
+.pg p { margin: 0 0 .75em; text-align: justify; hyphens: auto; }
+.pg .kicker { font-family: var(--display); font-variant: small-caps; letter-spacing: .18em; font-size: 12px; color: var(--paper-muted); text-align: center; margin-bottom: 1.2em; }
+.initial {
+  float: left; width: 3.35em; height: 3.35em; margin: .2em .55em .1em 0;
+  display: grid; place-items: center;
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,.5), transparent 45%),
+    var(--gilt);
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 2px #7a5420, inset 0 0 0 4px #f5dc96, inset 0 0 0 5px #7a5420, 0 2px 4px rgba(80,50,10,.3);
+  font-family: var(--fairy); font-weight: 700; font-size: 1em; color: var(--oxblood);
+  position: relative;
+}
+.initial b { font-size: 2.55em; line-height: 1; text-shadow: 0 1px 0 rgba(255,240,200,.6); font-weight: 700; }
+.fleuron { text-align: center; color: #a8792f; font-size: 22px; margin: .6em 0; letter-spacing: .5em; }
+.tailpiece { margin-top: auto; display: grid; place-items: center; gap: 6px; color: #a8792f; }
+.ink { }
+.inked .ink { animation: inkIn 1.1s cubic-bezier(.2,.6,.2,1) var(--d, 0ms) both; }
+@keyframes inkIn { from { opacity: 0; filter: blur(4px); transform: translateY(3px); } to { opacity: 1; filter: none; transform: none; } }
+
+/* title page / openers / end */
+.center-page { align-items: center; justify-content: center; text-align: center; gap: 14px; }
+.center-page h2 { font-family: var(--fairy); font-weight: 400; font-size: 31px; line-height: 1.15; margin: 0; color: var(--oxblood); text-wrap: balance; }
+.center-page .sub { font-family: var(--book-font); font-style: italic; color: var(--paper-muted); max-width: 24ch; margin: 0; text-align: center; }
+.center-page .num { font-family: var(--display); font-variant: small-caps; letter-spacing: .3em; font-size: 13px; color: #a8792f; }
+.frame-orn { position: absolute; inset: 18px; border: 1px solid rgba(168,121,47,.55); pointer-events: none; }
+.frame-orn::after { content: ""; position: absolute; inset: 5px; border: 1px solid rgba(168,121,47,.3); }
+.endcard a {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 6px;
+  font-family: var(--ui); font-size: 13px; font-weight: 700; color: var(--oxblood); text-decoration: none;
+  border: 1px solid rgba(90,22,48,.35); border-radius: 999px; padding: 7px 14px; background: rgba(255,255,255,.35);
+}
+
+/* endpaper = inside of the front board */
+.endpaper {
+  position: absolute; inset: 10px 12px 10px 10px; border-radius: 4px;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(230,189,106,.35) 0 6%, transparent 7%),
+    radial-gradient(circle at 70% 65%, rgba(230,189,106,.28) 0 5%, transparent 6%),
+    radial-gradient(circle at 45% 85%, rgba(230,189,106,.25) 0 4%, transparent 5%),
+    radial-gradient(ellipse at 30% 40%, #2d3d6b, transparent 60%),
+    radial-gradient(ellipse at 75% 70%, #3a2a5c, transparent 55%),
+    repeating-radial-gradient(circle at 40% 50%, #1e2a4f 0 9px, #26365f 9px 14px, #1a2445 14px 22px);
+  display: grid; place-items: center;
+}
+.exlibris {
+  width: 62%; aspect-ratio: 3 / 4; background: var(--paper); border-radius: 4px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.4), inset 0 0 0 6px var(--paper), inset 0 0 0 7px #a8792f;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  font-family: var(--book-font); color: var(--paper-ink); text-align: center; padding: 16px;
+}
+.exlibris .lbl { font-family: var(--fairy); font-size: 13px; letter-spacing: .1em; color: #a8792f; }
+.exlibris .who { font-style: italic; font-size: 17px; }
+
+/* cover */
+.cover {
+  position: absolute; left: 358px; top: -10px; width: 372px; height: 540px; z-index: 8;
+  transform-origin: left center; transform-style: preserve-3d;
+  transition: transform 1.7s cubic-bezier(.6,.05,.25,1);
+}
+.book.open .cover { transform: rotateY(-180deg); }
+.book.settled .cover { z-index: 1; }
+.cover-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 4px 12px 12px 4px; overflow: hidden; }
+.cover-back { transform: rotateY(180deg); border-radius: 12px 4px 4px 12px; background: linear-gradient(200deg, #6b1c3a, var(--oxblood) 55%, #3a0d1f); }
+.cover-front {
+  background:
+    radial-gradient(ellipse at 35% 25%, rgba(255,255,255,.12), transparent 45%),
+    radial-gradient(ellipse at 50% 120%, rgba(0,0,0,.5), transparent 60%),
+    linear-gradient(160deg, #7a2245, var(--oxblood) 55%, #3a0d1f);
+  box-shadow: 0 34px 70px rgba(0,0,0,.6), inset 6px 0 10px rgba(0,0,0,.45);
+}
+.cover-front::before { /* leather grain */
+  content: ""; position: absolute; inset: 0; opacity: .25;
+  background-image: radial-gradient(rgba(0,0,0,.5) 1px, transparent 1.3px), radial-gradient(rgba(255,255,255,.12) 1px, transparent 1.3px);
+  background-size: 4px 4px, 7px 7px; background-position: 0 0, 2px 3px;
+}
+.cover-front::after { /* sheen that sweeps across the gold */
+  content: ""; position: absolute; inset: -40%; pointer-events: none;
+  background: linear-gradient(115deg, transparent 42%, rgba(255,240,200,.18) 50%, transparent 58%);
+  animation: sheen 6.5s ease-in-out infinite;
+}
+@keyframes sheen { 0%, 55% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
+.gild-frame { position: absolute; inset: 20px; border-radius: 6px; padding: 3px; background: var(--gilt); }
+.gild-frame > div { width: 100%; height: 100%; border-radius: 4px; background: linear-gradient(160deg, #6f1e3f, #4a1128); box-shadow: inset 0 0 0 2px #2a0814, inset 0 0 0 4px rgba(230,189,106,.55); position: relative; }
+.corner { position: absolute; width: 74px; height: 74px; }
+.corner.tl { top: 6px; left: 6px; }
+.corner.tr { top: 6px; right: 6px; transform: scaleX(-1); }
+.corner.bl { bottom: 6px; left: 6px; transform: scaleY(-1); }
+.corner.br { bottom: 6px; right: 6px; transform: scale(-1, -1); }
+.jewel { position: absolute; width: 18px; height: 18px; border-radius: 50%; box-shadow: 0 0 0 3px #c99a45, 0 0 0 4px #6b4a17, 0 2px 6px rgba(0,0,0,.5); }
+.jewel.rose { background: radial-gradient(circle at 35% 30%, #ffd1e0, #d6507e 40%, #5c0f2c 85%); }
+.jewel.sapph { background: radial-gradient(circle at 35% 30%, #d4e4ff, #4c74d6 40%, #142a66 85%); }
+.jewel.t { top: -9px; left: calc(50% - 9px); } .jewel.b { bottom: -9px; left: calc(50% - 9px); }
+.jewel.l { left: -9px; top: calc(50% - 9px); } .jewel.r { right: -9px; top: calc(50% - 9px); }
+.cover-title { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px 34px; gap: 14px; }
+.gold-text { background: var(--gilt); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 2px 0 rgba(0,0,0,.45)); }
+.cover-title h2 { font-family: var(--fairy); font-weight: 700; font-size: 38px; line-height: 1.08; margin: 0; text-wrap: balance; }
+.cover-title .by { font-family: var(--display); font-style: italic; font-size: 15px; color: #e8c98a; opacity: .85; }
+.cover-title .rule { width: 120px; height: 10px; }
+.spine-hint { position: absolute; left: 0; top: 0; bottom: 0; width: 16px; background: linear-gradient(90deg, rgba(0,0,0,.5), transparent); }
+
+/* turning leaf */
+.leaf { position: absolute; top: 0; width: 360px; height: 520px; transform-style: preserve-3d; z-index: 6; transition: transform .95s cubic-bezier(.45,.05,.2,1); }
+.leaf.next { left: 360px; transform-origin: left center; }
+.leaf.next.turn { transform: rotateY(-180deg); }
+.leaf.prev { left: 0; transform-origin: right center; }
+.leaf.prev.turn { transform: rotateY(180deg); }
+.leaf .pg { left: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.leaf .pg.back { transform: rotateY(180deg); }
+.leaf .pg::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; background: linear-gradient(90deg, rgba(60,35,10,.35), transparent 60%); }
+.leaf.turn .pg::after { animation: shade .95s ease-in-out; }
+@keyframes shade { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
+
+.hit { position: absolute; top: 0; width: 120px; height: 520px; z-index: 7; cursor: pointer; background: none; border: 0; }
+.hit.l { left: 0; } .hit.r { right: 0; }
+.book:not(.settled) .hit { display: none; }
+.hit:hover::after { content: ""; position: absolute; inset: 0; background: linear-gradient(var(--dir, 90deg), transparent, rgba(230,189,106,.12)); }
+.hit.l:hover::after { --dir: 270deg; }
+
+/* controls */
+.controls { position: relative; z-index: 3; margin-top: 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; transition: opacity .6s; }
+.stage.idle .controls { opacity: .12; }
+.open-btn {
+  font-family: var(--fairy); font-size: 1.05rem; letter-spacing: .06em; cursor: pointer;
+  padding: 12px 30px; border-radius: 999px; border: 1px solid var(--gold); color: var(--gold-hi);
+  background: radial-gradient(ellipse at 50% 0%, rgba(230,189,106,.25), rgba(230,189,106,.05));
+  box-shadow: 0 0 24px rgba(230,189,106,.25);
+}
+.open-btn:hover { box-shadow: 0 0 34px rgba(230,189,106,.45); }
+.hint { color: var(--muted); font-size: .82rem; }
+.reader-bar { display: none; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.stage.is-open .reader-bar { display: flex; }
+.stage.is-open .open-btn, .stage.is-open .hint.pre { display: none; }
+.round { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line); background: var(--panel); cursor: pointer; }
+.round:disabled { opacity: .35; cursor: default; }
+.pill { height: 38px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; font-weight: 600; font-size: .85rem; display: inline-flex; align-items: center; gap: 6px; }
+.pill[aria-pressed="true"] { border-color: var(--gold); color: var(--gold-hi); }
+.beads { display: flex; align-items: center; gap: 0; padding: 0 6px; }
+.bead { position: relative; width: 34px; height: 38px; display: grid; place-items: center; border: 0; background: none; cursor: pointer; }
+.bead::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--line); }
+.bead span { position: relative; width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--gold-lo); background: var(--velvet); transition: transform .3s; }
+.bead.chap span { width: 14px; height: 14px; transform: rotate(45deg); border-radius: 2px; }
+.bead[aria-current="true"] span { background: var(--gold); border-color: var(--gold-hi); box-shadow: 0 0 10px var(--gold); }
+.bead .tip { display: none; }
+.bead:hover .tip, .bead:focus-visible .tip {
+  display: block; position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); white-space: nowrap;
+  background: var(--panel-2); border: 1px solid var(--line); padding: 4px 10px; border-radius: 8px; font-size: .78rem;
+}
+.reading-label { font-family: var(--display); font-style: italic; color: var(--muted); font-size: .9rem; min-height: 1.4em; text-align: center; }
+.pop { position: absolute; bottom: 52px; right: 0; width: 250px; padding: 14px; border-radius: 14px; background: var(--panel-2); border: 1px solid var(--line); box-shadow: 0 18px 40px rgba(0,0,0,.5); display: grid; gap: 10px; z-index: 5; }
+.pop label { font-size: .8rem; color: var(--muted); display: grid; gap: 6px; }
+.seg { display: flex; gap: 4px; }
+.seg button { flex: 1; padding: 6px 4px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; font-size: .8rem; }
+.seg button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold-hi); }
+.aa-wrap { position: relative; }
+input[type="range"] { accent-color: var(--gold); width: 100%; }
+
+/* ---------- STUDIO ---------- */
+.wrap { max-width: 1280px; margin: 0 auto; padding-block: 28px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.lede { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; margin-bottom: 18px; }
+.lede h1 { font-family: var(--display); font-weight: 600; font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0; }
+.lede p { margin: 4px 0 0; color: var(--muted); max-width: 62ch; }
+.legend { color: var(--muted); font-size: .82rem; display: flex; align-items: center; gap: 8px; }
+
+.window { border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: var(--velvet); box-shadow: 0 30px 80px rgba(0,0,0,.45); display: grid; grid-template-columns: 220px minmax(0, 1fr); }
+.rail { background: #160f22; border-right: 1px solid var(--line); padding: 16px 12px; display: flex; flex-direction: column; gap: 18px; }
+.rail-brand { display: flex; align-items: center; gap: 8px; font-family: var(--display); font-weight: 600; padding: 0 6px; }
+.rail h4 { margin: 0 0 4px; padding: 0 10px; font-size: .68rem; letter-spacing: .16em; text-transform: uppercase; color: color-mix(in srgb, var(--muted) 75%, transparent); font-weight: 700; }
+.rail ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.rail li a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 10px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: .9rem; }
+.rail li a.on { background: var(--panel-2); color: var(--ink); box-shadow: inset 2px 0 0 var(--gold); }
+.rail svg { width: 18px; height: 18px; flex: none; }
+.rail-foot { margin-top: auto; }
+.main { min-width: 0; display: flex; flex-direction: column; }
+.appbar { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.switcher { display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); font-weight: 700; }
+.mini-spine { width: 10px; height: 28px; border-radius: 2px; background: linear-gradient(90deg, #4a1128, #8a2a50, #4a1128); box-shadow: inset 0 3px 0 #e6bd6a, inset 0 -3px 0 #e6bd6a; }
+.search { flex: 1 1 220px; display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line); background: #1a1229; color: var(--muted); min-width: 0; }
+kbd { font-family: var(--ui); font-size: .72rem; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 1px 6px; color: var(--muted); }
+.search kbd { margin-left: auto; }
+.lamp { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: linear-gradient(180deg, #f0c878, #c9923d); color: #2a1a08; font-weight: 800; font-size: .85rem; border: 0; }
+.content { padding: 20px; display: grid; gap: 18px; grid-template-columns: repeat(12, minmax(0, 1fr)); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; position: relative; min-width: 0; }
+.card h3 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 1.05rem; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.card-head a { color: var(--gold); font-size: .82rem; font-weight: 700; text-decoration: none; }
+.span-8 { grid-column: span 8; } .span-4 { grid-column: span 4; } .span-12 { grid-column: span 12; } .span-7 { grid-column: span 7; } .span-5 { grid-column: span 5; }
+
+.continue { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center;
+  background: radial-gradient(ellipse at 0% 0%, rgba(230,189,106,.14), transparent 55%), var(--panel); }
+.eyebrow-s { font-size: .7rem; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); font-weight: 700; }
+.continue h2 { font-family: var(--display); font-weight: 600; font-size: 1.5rem; margin: 4px 0 6px; }
+.excerpt { font-family: var(--book-font); font-style: italic; color: var(--muted); margin: 0 0 14px; max-width: 58ch; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; font-weight: 700; font-size: .88rem; text-decoration: none; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); cursor: pointer; }
+.btn.primary { background: var(--gold); color: #2a1a08; border-color: var(--gold); }
+.ring { width: 112px; height: 112px; }
+.ring text { font-family: var(--display); fill: var(--ink); }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+.stat { background: var(--panel-2); border-radius: 12px; padding: 10px 12px; }
+.stat b { display: block; font-family: var(--display); font-size: 1.4rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: .8rem; }
+.spark { margin-top: 12px; width: 100%; height: 54px; }
+
+.people { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.person { background: var(--panel-2); border-radius: 14px; padding: 14px; display: grid; gap: 8px; justify-items: start; }
+.crest { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-family: var(--fairy); font-weight: 700; font-size: 1.1rem; color: #2a1a08; box-shadow: 0 0 0 2px var(--panel-2), 0 0 0 3px var(--gold-lo); }
+.person h5 { margin: 0; font-family: var(--display); font-size: 1rem; font-weight: 600; }
+.person p { margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.4; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { font-size: .7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #1a1229; border: 1px solid var(--line); color: var(--muted); }
+.chip.role { color: var(--gold-hi); border-color: color-mix(in srgb, var(--gold) 40%, transparent); }
+.chip.bond::before { content: "↔ "; color: var(--rose); }
+
+.lore { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tile { border-radius: 12px; overflow: hidden; background: var(--panel-2); display: grid; grid-template-rows: 58px auto; }
+.tile .art { position: relative; }
+.tile .art svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tile div.t { padding: 8px 10px 10px; }
+.tile b { font-family: var(--display); font-weight: 600; font-size: .92rem; display: block; }
+.tile small { color: var(--muted); font-size: .74rem; }
+
+.timeline { overflow-x: auto; }
+.tl { position: relative; min-width: 760px; display: grid; grid-template-columns: repeat(10, 1fr); padding-top: 56px; }
+.month { border-left: 1px dashed var(--line); padding: 6px 8px 2px; font-size: .74rem; color: var(--muted); font-weight: 700; }
+.month:nth-child(odd) { background: rgba(255,255,255,.015); }
+.event { position: absolute; top: 4px; display: grid; gap: 3px; padding: 6px 10px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); font-size: .78rem; white-space: nowrap; }
+.event::after { content: ""; position: absolute; left: 14px; top: 100%; width: 1px; height: 14px; background: var(--gold); }
+.event b { font-weight: 700; }
+.event span { color: var(--muted); font-size: .7rem; }
+.dot-g { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
+
+/* bookshelf */
+.shelf-card { padding: 0; overflow: hidden; background: #140d1c; }
+.shelf-top { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; padding: 14px 16px 0; }
+.shelf-top p { margin: 2px 0 0; color: var(--muted); font-size: .84rem; }
+.promise { display: flex; gap: 6px; flex-wrap: wrap; }
+.promise .chip { color: var(--ink); }
+.case { overflow-x: auto; padding: 0 16px 16px; }
+.case-in {
+  position: relative; min-width: 640px; margin-top: 12px; border-radius: 10px; padding: 26px 26px 0;
+  background:
+    radial-gradient(ellipse 60% 120% at 18% 0%, rgba(240,190,110,.28), transparent 60%),
+    linear-gradient(180deg, #2b1a12, #1f130d);
+  box-shadow: inset 0 0 0 10px #3a2417, inset 0 0 0 11px #57361f, inset 0 18px 30px rgba(0,0,0,.5);
+}
+.case-in::before { /* wood grain */
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: .3;
+  background: repeating-linear-gradient(92deg, rgba(0,0,0,.25) 0 2px, transparent 2px 9px, rgba(255,210,150,.05) 9px 11px, transparent 11px 23px);
+}
+.row-books { position: relative; display: flex; align-items: flex-end; gap: 4px; min-height: 214px; padding: 0 6px; }
+.plank { position: relative; height: 18px; margin: 0 -26px; background: linear-gradient(180deg, #6b4428, #43291a 60%, #2d1b11); box-shadow: 0 6px 12px rgba(0,0,0,.5); }
+.bookend { align-self: flex-end; margin-right: 8px; width: 46px; height: 74px; color: #e6bd6a; filter: drop-shadow(0 0 10px rgba(230,189,106,.55)); }
+.spine {
+  --leather: #6e2f3c;
+  position: relative; flex: none; border: 0; padding: 0; cursor: pointer; border-radius: 4px 4px 2px 2px;
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.45), rgba(255,255,255,.14) 22%, rgba(255,255,255,.03) 45%, rgba(0,0,0,.25) 80%, rgba(0,0,0,.5)),
+    var(--leather);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), 2px 0 3px rgba(0,0,0,.35);
+  transition: transform .35s cubic-bezier(.3,.7,.3,1), box-shadow .35s;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.spine::before, .spine::after { content: ""; position: absolute; left: 3px; right: 3px; height: 5px; border-top: 1.5px solid #d9ab55; border-bottom: 1.5px solid #d9ab55; opacity: .85; }
+.spine::before { top: 14px; } .spine::after { bottom: 14px; }
+.spine strong {
+  writing-mode: vertical-rl; font-family: var(--display); font-weight: 600; letter-spacing: .04em; line-height: 1.05;
+  max-height: calc(100% - 52px); overflow: hidden; text-align: center;
+  background: var(--gilt); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.spine:hover, .spine:focus-visible { transform: translateY(-8px); }
+.spine.on { transform: translateY(-10px); box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), 0 0 0 2px var(--gold), 0 0 24px rgba(230,189,106,.55); }
+.spine.on .glint { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; }
+.spine.on .glint::after { content: ""; position: absolute; inset: -20% -150%; background: linear-gradient(100deg, transparent 45%, rgba(255,240,200,.35) 50%, transparent 55%); animation: sheen 4.5s ease-in-out infinite; }
+.spine-x {
+  position: absolute; top: -9px; right: -9px; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--muted); font-size: .8rem; line-height: 1; cursor: pointer; display: none; z-index: 2;
+}
+.slot:hover .spine-x, .slot:focus-within .spine-x { display: grid; place-items: center; }
+.slot { position: relative; display: flex; align-items: flex-end; }
+.spine-new {
+  width: 54px; height: 176px; border-radius: 4px; border: 1.5px dashed rgba(230,189,106,.5); background: rgba(230,189,106,.05);
+  color: var(--gold-hi); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+}
+.spine-new span { writing-mode: vertical-rl; font-weight: 700; font-size: .82rem; letter-spacing: .06em; }
+.spine-new:hover { background: rgba(230,189,106,.12); }
+.new-form { display: flex; flex-direction: column; gap: 8px; align-self: center; padding: 10px; border-radius: 12px; background: rgba(20,13,28,.85); border: 1px solid var(--line); }
+.new-form input { font: inherit; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: #1a1229; color: var(--ink); width: 170px; }
+.new-form .btn { justify-content: center; padding: 7px 12px; }
+.shelf-foot { padding: 0 16px 14px; color: var(--muted); font-size: .82rem; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.shelf-foot b { color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .spine { transition: none; } }
+
+/* annotation pins */
+.pin {
+  position: absolute; z-index: 4; width: 24px; height: 24px; border-radius: 50%;
+  border: 0; cursor: help; font-size: .72rem; font-weight: 800; color: #2a1a08;
+  background: var(--gold); box-shadow: 0 0 0 4px rgba(230,189,106,.22);
+  animation: pulse 2.6s ease-in-out infinite;
+}
+@keyframes pulse { 50% { box-shadow: 0 0 0 8px rgba(230,189,106,.06); } }
+.pin .tipbox { display: none; }
+.pin:hover .tipbox, .pin:focus .tipbox {
+  display: block; position: absolute; top: 30px; right: -8px; width: 250px; text-align: left; cursor: default;
+  background: #0f0a18; color: var(--ink); border: 1px solid var(--gold-lo); border-radius: 12px; padding: 10px 12px;
+  font-weight: 500; font-size: .8rem; line-height: 1.45; box-shadow: 0 14px 30px rgba(0,0,0,.5);
+}
+.tipbox b { color: var(--gold-hi); }
+.pins-off .pin { display: none; }
+
+/* ---------- IDEAS ---------- */
+.ideas-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 28px; align-items: start; }
+.group { margin-bottom: 30px; }
+.group h2 { font-family: var(--display); font-weight: 600; font-size: 1.3rem; margin: 0 0 4px; }
+.group > p { margin: 0 0 14px; color: var(--muted); max-width: 66ch; }
+.idea { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; padding: 14px 0; border-top: 1px solid var(--line); }
+.idea .n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: .78rem; font-weight: 800; background: var(--panel-2); color: var(--gold-hi); border: 1px solid var(--gold-lo); }
+.idea h3 { margin: 2px 0 4px; font-size: 1rem; font-weight: 700; }
+.idea p { margin: 0; color: var(--muted); max-width: 70ch; }
+.idea code { font-size: .82em; color: var(--gold-hi); background: #1a1229; padding: 1px 5px; border-radius: 5px; }
+.effort { font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; height: fit-content; white-space: nowrap; }
+.effort.s { background: rgba(120,200,150,.12); color: #9fe0b4; }
+.effort.m { background: rgba(230,189,106,.14); color: var(--gold-hi); }
+.effort.l { background: rgba(215,122,151,.15); color: #f2a9c0; }
+.aside { position: sticky; top: 80px; display: grid; gap: 14px; }
+.aside .card p, .aside .card li { color: var(--muted); font-size: .88rem; }
+.aside ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 6px; }
+.aside h3 { margin-bottom: 4px; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1060px) {
+  .span-8, .span-4, .span-7, .span-5 { grid-column: span 12; }
+  .people { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ideas-grid { grid-template-columns: minmax(0, 1fr); }
+  .aside { position: static; }
+}
+@media (max-width: 760px) {
+  .window { grid-template-columns: minmax(0, 1fr); }
+  .rail { display: none; }
+  .continue { grid-template-columns: minmax(0, 1fr); }
+  .ring { display: none; }
+  .tabs { margin-left: 0; width: 100%; justify-content: space-between; }
+  .tabs a { padding: 6px 10px; }
+  .content { padding: 14px; }
+  .pin:hover .tipbox, .pin:focus .tipbox { right: auto; left: -110px; width: 220px; }
+}
+@media (max-width: 480px) {
+  .people, .lore { grid-template-columns: minmax(0, 1fr); }
+  .idea { grid-template-columns: 30px minmax(0, 1fr); }
+  .idea .effort { grid-column: 2; justify-self: start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; }
+  .book, .cover, .leaf { transition-duration: .01s !important; }
+}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="gg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7a5420"/><stop offset=".3" stop-color="#f3d58a"/><stop offset=".5" stop-color="#b8862f"/><stop offset=".75" stop-color="#fbe7a6"/><stop offset="1" stop-color="#8a6224"/>
+    </linearGradient>
+    <symbol id="flourish" viewBox="0 0 80 80">
+      <path d="M4 4 C4 30 14 44 30 46 C20 38 20 26 30 22 C40 18 46 28 40 34 C36 38 30 34 33 30" fill="none" stroke="url(#gg)" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M4 4 C30 4 44 14 46 30 C38 20 26 20 22 30 C18 40 28 46 34 40 C38 36 34 30 30 33" fill="none" stroke="url(#gg)" stroke-width="2.2" stroke-linecap="round"/>
+      <circle cx="8" cy="8" r="4" fill="url(#gg)"/>
+      <path d="M14 58 q6 -4 4 -12 M58 14 q-4 6 -12 4" fill="none" stroke="url(#gg)" stroke-width="1.6" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="lighthouse" viewBox="0 0 60 80">
+      <path d="M30 10 L30 4 M18 14 L10 9 M42 14 L50 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M24 22 h12 l-2 -8 h-8 z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <circle cx="30" cy="18" r="2.4" fill="currentColor"/>
+      <path d="M23 22 L20 70 H40 L37 22" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <path d="M21.6 40 H38.4 M20.8 55 H39.2" stroke="currentColor" stroke-width="1.2"/>
+      <path d="M8 72 q8 -5 16 0 t16 0 t16 0" fill="none" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M4 77 q8 -5 16 0 t16 0 t16 0" fill="none" stroke="currentColor" stroke-width="1" opacity=".6"/>
+    </symbol>
+    <symbol id="rule" viewBox="0 0 120 10">
+      <path d="M2 5 H48 M72 5 H118" stroke="url(#gg)" stroke-width="1.2"/>
+      <path d="M60 1 L64 5 L60 9 L56 5 Z" fill="url(#gg)"/><circle cx="52" cy="5" r="1.6" fill="url(#gg)"/><circle cx="68" cy="5" r="1.6" fill="url(#gg)"/>
+    </symbol>
+  </defs>
+</svg>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c2 3 5 4 5 8a5 5 0 0 1-10 0c0-4 3-5 5-8z" fill="#e6bd6a"/><path d="M12 9c1 1.5 2 2.2 2 3.6a2 2 0 0 1-4 0c0-1.4 1-2.1 2-3.6z" fill="#fff4cf"/></svg>
+      StoryMaker <small>redesign mockup</small>
+    </div>
+    <nav class="tabs" aria-label="Mockup views">
+      <a href="#storybook" data-view="storybook">Storybook</a>
+      <a href="#studio" data-view="studio">Studio</a>
+      <a href="#ideas" data-view="ideas">Suggestions</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ================= STORYBOOK ================= -->
+<section class="view" id="view-storybook" aria-label="Storybook mockup">
+  <div class="stage" id="stage">
+    <canvas id="motes" aria-hidden="true"></canvas>
+    <div class="stage-head">
+      <div class="eyebrow">Storybook</div>
+      <h1>Once upon a time, on the Quiet Pier</h1>
+    </div>
+    <div class="sizer" id="sizer">
+      <div class="book-wrap" id="bookWrap">
+        <div class="book" id="book">
+          <div class="board right" aria-hidden="true"></div>
+          <div class="block" aria-hidden="true"></div>
+          <div class="pg l" id="pageL"></div>
+          <div class="pg r" id="pageR"></div>
+          <div class="cover" id="cover" aria-hidden="true">
+            <div class="cover-face cover-front">
+              <div class="spine-hint"></div>
+              <div class="gild-frame"><div>
+                <svg class="corner tl"><use href="#flourish"/></svg>
+                <svg class="corner tr"><use href="#flourish"/></svg>
+                <svg class="corner bl"><use href="#flourish"/></svg>
+                <svg class="corner br"><use href="#flourish"/></svg>
+                <span class="jewel rose t"></span><span class="jewel rose b"></span>
+                <span class="jewel sapph l"></span><span class="jewel sapph r"></span>
+                <div class="cover-title">
+                  <svg width="54" height="72" style="color:#e6bd6a"><use href="#lighthouse"/></svg>
+                  <h2 class="gold-text">Lantern<br>and Tide</h2>
+                  <svg class="rule"><use href="#rule"/></svg>
+                  <div class="by">Being the tale of Mira Quill</div>
+                </div>
+              </div></div>
+            </div>
+            <div class="cover-face cover-back">
+              <div class="endpaper"><div class="exlibris"><div class="lbl">Ex Libris</div><svg width="30" height="40" style="color:#a8792f"><use href="#lighthouse"/></svg><div class="who">From the shelf of<br>the Keeper of the Lamp</div></div></div>
+            </div>
+          </div>
+          <button class="hit l" id="hitL" aria-label="Previous page"></button>
+          <button class="hit r" id="hitR" aria-label="Next page"></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="open-btn" id="openBtn">Open the book</button>
+      <div class="hint pre">Press Enter, or click the cover. <button class="pill" id="soundPre" style="height:28px;margin-left:6px">♪ Turn sound on</button></div>
+      <div class="reading-label" id="readingLabel" aria-live="polite"></div>
+      <div class="reader-bar">
+        <button class="round" id="prevBtn" aria-label="Previous spread">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>
+        </button>
+        <div class="beads" id="beads" role="group" aria-label="Pages"></div>
+        <button class="round" id="nextBtn" aria-label="Next spread">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+        <div class="aa-wrap">
+          <button class="pill" id="aaBtn" aria-expanded="false" aria-controls="aaPop">Aa</button>
+          <div class="pop" id="aaPop" hidden>
+            <label>Typeface
+              <div class="seg" id="faceSeg">
+                <button type="button" data-face="fell" aria-pressed="true">Fairy tale</button>
+                <button type="button" data-face="fraunces" aria-pressed="false">Fraunces</button>
+                <button type="button" data-face="clear" aria-pressed="false">Clear</button>
+              </div>
+            </label>
+            <label for="sizeRange">Size
+              <input type="range" id="sizeRange" min="13" max="18" step="0.5" value="15.5">
+            </label>
+          </div>
+        </div>
+        <button class="pill" id="soundBtn" aria-pressed="false">♪ Sound off</button>
+        <button class="pill" id="closeBtn">Close book</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= STUDIO ================= -->
+<section class="view" id="view-studio" hidden aria-label="Studio mockup">
+  <div class="wrap">
+    <div class="lede">
+      <div>
+        <h1>Home, reorganized around the next sentence</h1>
+        <p>A Forge Tales–style dashboard in StoryMaker's own dusk palette. Gold pins match the numbered suggestions; hover or tab to one to read it.</p>
+      </div>
+      <label class="legend"><input type="checkbox" id="pinToggle" checked> Show pins</label>
+    </div>
+
+    <div class="window" id="window">
+      <aside class="rail">
+        <div class="rail-brand">
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c2 3 5 4 5 8a5 5 0 0 1-10 0c0-4 3-5 5-8z" fill="#e6bd6a"/><path d="M12 9c1 1.5 2 2.2 2 3.6a2 2 0 0 1-4 0c0-1.4 1-2.1 2-3.6z" fill="#fff4cf"/></svg>
+          StoryMaker
+        </div>
+        <div><ul><li><a class="on" href="#studio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 10.5 12 4l8 6.5"/><path d="M6 10v9h12v-9"/></svg>Home</a></li></ul></div>
+        <div style="position:relative">
+          <button class="pin" style="right:-4px;top:-6px" aria-label="Suggestion 12">12<span class="tipbox"><b>12 · Group the rooms.</b> Nine flat rooms become Write, World and Time. People find a room by what they are doing.</span></button>
+          <h4>Write</h4>
+          <ul>
+            <li><a href="#studio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 20c4 0 6-3 6-6 0-4-3-6-4-8-1 2-3 3-3 5 0-3-2-5-4-6 0 4-3 6-3 9 0 3 2 6 8 6z"/></svg>Hearth</a></li>
+            <li><a href="#storybook"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 5h6a3 3 0 0 1 3 3v12a3 3 0 0 0-3-3H5z"/><path d="M19 5h-6a3 3 0 0 0-3 3v12a3 3 0 0 1 3-3h6z"/></svg>Storybook</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>World</h4>
+          <ul>
+            <li><a href="#studio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3"/><path d="M5 19c1.2-3 3.4-4.5 7-4.5S17.8 16 19 19"/></svg>People</a></li>
+            <li><a href="#studio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 5h16v14H4z"/><path d="M4 9h16M9 9v10"/></svg>Lore</a></li>
+            <li><a href="#studio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="7" cy="12" r="2.2"/><circle cx="17" cy="8" r="2.2"/><circle cx="17" cy="16" r="2.2"/><path d="M9 11.2 14.8 8.8M9 12.8l5.8 2.4"/></svg>Bonds</a></li>
+            <li><a href="#studio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 15l2.5-3 2 2 2-2.5L18 15"/></svg>Vision</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Time</h4>
+          <ul>
+            <li><a href="#studio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M8 6h11M5 12h14M8 18h11"/></svg>Threads</a></li>
+            <li><a href="#studio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>Calendar</a></li>
+          </ul>
+        </div>
+        <div class="rail-foot"><ul><li><a href="#studio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/></svg>Settings</a></li></ul></div>
+      </aside>
+
+      <div class="main">
+        <div class="appbar" style="position:relative">
+          <div class="switcher" style="position:relative"><span class="mini-spine" id="miniSpine"></span><span id="switchTitle">Lantern and Tide</span> <span style="color:var(--muted)">▾</span>
+            <button class="pin" style="right:-12px;top:-12px" aria-label="Suggestion 13">13<span class="tipbox"><b>13 · Book switcher.</b> Change stories from any room. Today you have to go back to the shelf on Home.</span></button>
+          </div>
+          <div class="search" style="position:relative">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            Search people, lore, scenes…
+            <kbd>Ctrl K</kbd>
+            <button class="pin" style="right:-10px;top:-12px" aria-label="Suggestion 14">14<span class="tipbox"><b>14 · Command palette.</b> One box that finds a person, a lore page or a scene, and also runs actions like "New scene".</span></button>
+          </div>
+          <button class="lamp">🕯 Light the lamp</button>
+        </div>
+
+        <div class="content">
+          <article class="card shelf-card span-12">
+            <button class="pin" style="right:12px;top:12px" aria-label="Suggestion 15">15<span class="tipbox"><b>15 · Keep the shelf, let it glow.</b> Same bookcase and rules. Lamp light on the wood, gilt spines, a lift on hover, and the open book pulled forward. Click a spine, or add a new story.</span></button>
+            <div class="shelf-top">
+              <div><h3>Your shelf</h3><p>Each book is its own story, kept on this computer.</p></div>
+              <div class="promise" style="margin-right:36px"><span class="chip">Offline</span><span class="chip">Private</span><span class="chip">AI only when you ask</span></div>
+            </div>
+            <div class="case"><div class="case-in">
+              <div class="row-books" id="rowBooks"></div>
+              <div class="plank"></div>
+            </div></div>
+            <div class="shelf-foot"><span>Open: <b id="openTitle">Lantern and Tide</b></span><span>Example books, except Lantern and Tide, your sample story.</span></div>
+          </article>
+
+          <article class="card continue span-8">
+            <button class="pin" style="right:12px;top:12px" aria-label="Suggestion 16">16<span class="tipbox"><b>16 · Continue writing first.</b> The last scene, its word goal, and two doors: write it or read it. The lamp ritual moves into this card.</span></button>
+            <div>
+              <div class="eyebrow-s">Pick up where you left off</div>
+              <h2>A button on the floor</h2>
+              <p class="excerpt">“Eat first,” he said. “Maps can be stolen. Breakfast is harder to ruin.”</p>
+              <div class="btns">
+                <a class="btn primary" href="#studio">✎ Write in the Hearth</a>
+                <a class="btn" href="#storybook">Read in the Storybook</a>
+              </div>
+            </div>
+            <svg class="ring" viewBox="0 0 120 120" role="img" aria-label="Scene word goal, 62 percent">
+              <circle cx="60" cy="60" r="50" fill="none" stroke="#3d3058" stroke-width="9"/>
+              <circle cx="60" cy="60" r="50" fill="none" stroke="#e6bd6a" stroke-width="9" stroke-linecap="round" stroke-dasharray="194.8 314.2" transform="rotate(-90 60 60)"/>
+              <text x="60" y="58" text-anchor="middle" font-size="24" font-weight="600">310</text>
+              <text x="60" y="78" text-anchor="middle" font-size="11" style="fill:#b3a5c6;font-family:Nunito">of 500 words</text>
+            </svg>
+          </article>
+
+          <article class="card span-4">
+            <div class="card-head"><h3>This fortnight</h3><span class="chip">sample numbers</span></div>
+            <div class="stats">
+              <div class="stat"><b>2,418</b><span>words written</span></div>
+              <div class="stat"><b>6 days</b><span>lamp lit in a row</span></div>
+            </div>
+            <svg class="spark" viewBox="0 0 280 54" preserveAspectRatio="none" role="img" aria-label="Words per day over 14 days">
+              <defs><linearGradient id="sf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6bd6a" stop-opacity=".35"/><stop offset="1" stop-color="#e6bd6a" stop-opacity="0"/></linearGradient></defs>
+              <path d="M0 44 L20 40 L40 46 L60 30 L80 34 L100 50 L120 38 L140 26 L160 30 L180 18 L200 24 L220 14 L240 20 L260 10 L280 8 L280 54 L0 54 Z" fill="url(#sf)"/>
+              <path d="M0 44 L20 40 L40 46 L60 30 L80 34 L100 50 L120 38 L140 26 L160 30 L180 18 L200 24 L220 14 L240 20 L260 10 L280 8" fill="none" stroke="#e6bd6a" stroke-width="2"/>
+              <circle cx="277" cy="8" r="3.5" fill="#fbe6a8"/>
+            </svg>
+          </article>
+
+          <article class="card span-7">
+            <button class="pin" style="right:12px;top:12px" aria-label="Suggestion 18">18<span class="tipbox"><b>18 · Richer character cards.</b> A crest or portrait, the role, and their bonds right on the card, the way Forge Tales shows relationships.</span></button>
+            <div class="card-head"><h3>People</h3><a href="#studio">All 4 →</a></div>
+            <div class="people">
+              <div class="person"><div class="crest" style="background:linear-gradient(135deg,#f3d58a,#c9923d)">MQ</div><h5>Mira Quill</h5><div class="chips"><span class="chip role">Protagonist</span></div><p>Harbor cartographer who mends maps for anyone who asks.</p><div class="chips"><span class="chip bond">Bram</span><span class="chip bond">Pio</span></div></div>
+              <div class="person"><div class="crest" style="background:linear-gradient(135deg,#bcd4f0,#5d7fb8)">BH</div><h5>Bram Heddle</h5><div class="chips"><span class="chip role">Mentor</span></div><p>Former keeper of Heddle Light. Bakes too much bread.</p><div class="chips"><span class="chip bond">Mira</span></div></div>
+              <div class="person"><div class="crest" style="background:linear-gradient(135deg,#f2a9c0,#a8455f)">SV</div><h5>Sera Voss</h5><div class="chips"><span class="chip role">Antagonist</span></div><p>Runs the Salt Ledger on the Upper Wharf.</p><div class="chips"><span class="chip bond">Mira</span></div></div>
+              <div class="person"><div class="crest" style="background:linear-gradient(135deg,#bfe6c9,#4f9a6b)">PM</div><h5>Pio Marsh</h5><div class="chips"><span class="chip role">Supporting</span></div><p>Runner who hears the shoal before anyone sees it.</p><div class="chips"><span class="chip bond">Mira</span></div></div>
+            </div>
+          </article>
+
+          <article class="card span-5">
+            <button class="pin" style="right:12px;top:12px" aria-label="Suggestion 17">17<span class="tipbox"><b>17 · Previews, not counts.</b> Each room shows a slice of what is inside it, so Home doubles as a map of the world.</span></button>
+            <div class="card-head"><h3>Lore</h3><a href="#studio">5 notes →</a></div>
+            <div class="lore">
+              <div class="tile"><div class="art"><svg viewBox="0 0 160 58" preserveAspectRatio="xMidYMid slice"><rect width="160" height="58" fill="#253a5e"/><path d="M0 40 q20 -8 40 0 t40 0 t40 0 t40 0 V58 H0z" fill="#1a2a47"/><rect x="60" y="22" width="44" height="18" fill="#3b2a1e"/><circle cx="70" cy="30" r="3" fill="#e6bd6a"/><circle cx="92" cy="30" r="3" fill="#e6bd6a"/></svg></div><div class="t"><b>The Quiet Pier</b><small>Places · 3 links</small></div></div>
+              <div class="tile"><div class="art"><svg viewBox="0 0 160 58" preserveAspectRatio="xMidYMid slice"><rect width="160" height="58" fill="#24402f"/><circle cx="40" cy="36" r="10" fill="#7fc79a" opacity=".6"/><circle cx="58" cy="30" r="7" fill="#a6e0b9" opacity=".7"/><circle cx="110" cy="38" r="12" fill="#7fc79a" opacity=".5"/><circle cx="58" cy="30" r="14" fill="#e6bd6a" opacity=".12"/></svg></div><div class="t"><b>Lantern Moss</b><small>Ecology · 2 links</small></div></div>
+              <div class="tile"><div class="art"><svg viewBox="0 0 160 58" preserveAspectRatio="xMidYMid slice"><rect width="160" height="58" fill="#4a1f2e"/><path d="M50 10 h60 v40 h-60z" fill="#f1e2c2"/><path d="M58 20 h44 M58 28 h36 M58 36 h40" stroke="#8a6c4c" stroke-width="2"/><circle cx="104" cy="44" r="6" fill="#a8455f"/></svg></div><div class="t"><b>Salt Ledger</b><small>Houses · 4 links</small></div></div>
+              <div class="tile"><div class="art"><svg viewBox="0 0 160 58" preserveAspectRatio="xMidYMid slice"><rect width="160" height="58" fill="#3a2f52"/><rect x="56" y="16" width="48" height="30" rx="6" fill="#8d8aa3"/><rect x="56" y="16" width="48" height="8" rx="4" fill="#b7b3c9"/><path d="M66 34 h28" stroke="#e6bd6a" stroke-width="2"/></svg></div><div class="t"><b>The Biscuit Tin</b><small>Objects · 2 links</small></div></div>
+            </div>
+          </article>
+
+          <article class="card span-12">
+            <button class="pin" style="right:12px;top:12px" aria-label="Suggestion 19">19<span class="tipbox"><b>19 · Threads on a timeline.</b> Events laid across your own named months, colored by who is in them. Click a gap to add a thread on that day.</span></button>
+            <div class="card-head"><h3>Tideglass Year 418</h3><a href="#studio">Open Threads →</a></div>
+            <div class="timeline">
+              <div class="tl">
+                <div class="event" style="left:4%"><b><span class="dot-g" style="background:#e6bd6a"></span>The chart goes missing</b><span>Emberwake 12 · Mira, Pio</span></div>
+                <div class="event" style="left:27%"><b><span class="dot-g" style="background:#5d7fb8"></span>Bread and logbooks</b><span>Saltmoon 3 · Mira, Bram</span></div>
+                <div class="event" style="left:52%"><b><span class="dot-g" style="background:#4f9a6b"></span>Pio hears the shoal</b><span>Lanternrise 21 · Pio</span></div>
+                <div class="month">Emberwake</div><div class="month">Saltmoon</div><div class="month">Greenglass</div><div class="month">Lanternrise</div><div class="month">Goldveil</div><div class="month">Hearthtide</div><div class="month">Mistcrown</div><div class="month">Frostquill</div><div class="month">Stillwater</div><div class="month">Kindleve</div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= IDEAS ================= -->
+<section class="view" id="view-ideas" hidden aria-label="Suggestions">
+  <div class="wrap">
+    <div class="lede"><div><h1>Suggestions, roughly in the order I'd build them</h1><p>Effort is a guess for this codebase: S is an afternoon, M a few days, L a bigger feature. Numbers match the pins on the Studio view.</p></div></div>
+    <div class="ideas-grid">
+      <div>
+        <div class="group">
+          <h2>Storybook: make it an enchantment</h2>
+          <p>The current reader is a flat two-page panel with a select, a slider and "Spread 3 / 7" above it. It reads like a settings screen. The fixes below are mostly CSS in <code>styles.css</code> and a small state machine in <code>Storybook.tsx</code>; the Storybook tab of this mockup shows all of them working.</p>
+          <div class="idea"><span class="n">1</span><div><h3>Open with a ritual</h3><p>Start on the closed book: a gilded cover with the story's title on a dark velvet stage, gold motes drifting. "Open the book" swings the cover back on its spine while the book slides to center. Only the first visit in a session; after that, land on the reader's last page. With reduced motion, a cross-fade.</p></div><span class="effort m">M</span></div>
+          <div class="idea"><span class="n">2</span><div><h3>Real page turns</h3><p>A 3D leaf that carries the current right page over onto the left, with a soft shadow passing under it. Click either page edge, swipe, or use the arrow keys you already handle.</p></div><span class="effort m">M</span></div>
+          <div class="idea"><span class="n">3</span><div><h3>Put the controls away</h3><p>The chrome fades after a couple of seconds without movement. Skin and size move into one "Aa" popover. "Spread 3 / 7" becomes a row of beads, with a diamond where each chapter starts and its title on hover.</p></div><span class="effort s">S</span></div>
+          <div class="idea"><span class="n">4</span><div><h3>A fairy-tale face and gilded initials</h3><p>IM Fell English for the page (OFL, like your other fonts), Cinzel Decorative for titles and a gold-leaf drop cap at each chapter start, a fleuron between scenes, and small-caps folios. Fraunces and Atkinson stay as choices.</p></div><span class="effort s">S</span></div>
+          <div class="idea"><span class="n">5</span><div><h3>Chapter openers get their own page</h3><p>Each chapter opens on a full page with its number, title and a small emblem, framed by a hairline border. Text starts on the following page. This is a change to the block rules in <code>storybookPages.ts</code>.</p></div><span class="effort s">S</span></div>
+          <div class="idea"><span class="n">6</span><div><h3>Make it look like an object</h3><p>Leather boards that overhang the pages, a gilt fore-edge, a stack of page edges, a shadow in the gutter and a faint paper grain. Later, the stack could get thinner on the right as you read.</p></div><span class="effort s">S</span></div>
+          <div class="idea"><span class="n">7</span><div><h3>Ink the words in</h3><p>When a page arrives, its paragraphs come in one after another from a soft blur, like ink settling. It is short, and off under reduced motion.</p></div><span class="effort s">S</span></div>
+          <div class="idea"><span class="n">8</span><div><h3>Optional sound</h3><p>A celesta-like chime when the book opens and a paper rustle per turn, synthesized in Web Audio like your room tones so no audio files ship. Off by default.</p></div><span class="effort s">S</span></div>
+          <div class="idea"><span class="n">9</span><div><h3>Covers from the shelf</h3><p>Use each book's spine color, and an optional cover picture, for its cover. Skins become Gilded (new default), Illuminated and Glow.</p></div><span class="effort m">M</span></div>
+          <div class="idea"><span class="n">10</span><div><h3>An ending that invites writing</h3><p>After the last written page, a closing page: "The story so far ends here", with a button that opens the Hearth at that scene.</p></div><span class="effort s">S</span></div>
+          <div class="idea"><span class="n">11</span><div><h3>Export the book</h3><p>Forge Tales' Atelier compiles to .docx, .epub and .pdf. The Storybook is your natural "compile" step: the same pagination and typography, written to EPUB first.</p></div><span class="effort l">L</span></div>
+        </div>
+
+        <div class="group">
+          <h2>Getting around</h2>
+          <p>Forge Tales presents a few clearly named modules. StoryMaker has more rooms than that, in one flat list.</p>
+          <div class="idea"><span class="n">12</span><div><h3>Group the rooms in the rail</h3><p>Write (Hearth, Storybook), World (People, Lore, Bonds, Vision), Time (Threads, Calendar). Same icons, small section labels, and an active state with a gold edge.</p></div><span class="effort s">S</span></div>
+          <div class="idea"><span class="n">13</span><div><h3>A book switcher in the top bar</h3><p>The open book's spine and title, with a menu of the shelf. The shelf on Home stays as the place to arrange and add books.</p></div><span class="effort s">S</span></div>
+          <div class="idea"><span class="n">14</span><div><h3>Ctrl K command palette</h3><p>Turn Search into a palette: results labeled Person, Lore, Scene or Thread, plus actions like "New scene" or "Light the lamp".</p></div><span class="effort m">M</span></div>
+        </div>
+
+        <div class="group">
+          <h2>Home</h2>
+          <p>The shelf stays as the front door. Everything else on Home sits below it.</p>
+          <div class="idea"><span class="n">15</span><div><h3>Keep the shelf, and let it glow</h3><p>Same bookcase, same rules: one spine per story, New story at the end of the row, × on hover. Add a warm lamp light falling across the wood, gilt bands and gold titles on the spines, a lift on hover, and pull the open book forward with a gold glow. Each spine's leather color becomes that book's Storybook cover (item 9).</p></div><span class="effort s">S</span></div>
+          <div class="idea"><span class="n">16</span><div><h3>Lead with "Continue writing"</h3><p>The last scene's title, a line from it, a ring for the word goal, and two buttons: write it or read it. The lamp ritual moves into this card, and stats go to a smaller side card.</p></div><span class="effort s">S</span></div>
+          <div class="idea"><span class="n">17</span><div><h3>Room previews instead of counts</h3><p>Faces from People, pictures from Lore, and the next threads on the calendar, so Home doubles as a map of the world.</p></div><span class="effort m">M</span></div>
+        </div>
+
+        <div class="group">
+          <h2>Worldbuilding rooms</h2>
+          <div class="idea"><span class="n">18</span><div><h3>Character cards with crests and bonds</h3><p>A portrait, or a monogram crest in the person's color when there is no picture. The role as a chip, and the people they are bonded to, right on the card.</p></div><span class="effort m">M</span></div>
+          <div class="idea"><span class="n">19</span><div><h3>Threads as a timeline</h3><p>A horizontal strip across your named months, each event colored by its main person. Click an empty day to start a thread there.</p></div><span class="effort m">M</span></div>
+          <div class="idea"><span class="n">20</span><div><h3>Hover cards in the manuscript</h3><p>Names of pinned people and lore in the Hearth get a dotted underline. Hovering shows their card, so you can check eye color without leaving the scene.</p></div><span class="effort m">M</span></div>
+          <div class="idea"><span class="n">21</span><div><h3>Import from other tools</h3><p>Forge Tales imports Markdown from Notion, World Anvil, LegendKeeper and Campfire. Your Obsidian importer already turns loose notes into lore; give it presets for those exports' folder layouts.</p></div><span class="effort l">L</span></div>
+          <div class="idea"><span class="n">22</span><div><h3>Say the privacy promise up front</h3><p>Forge Tales leads with "No AI · Local & Offline · Private". You can say "Offline · Private · AI only when you ask" on first run and on the shelf.</p></div><span class="effort s">S</span></div>
+        </div>
+      </div>
+
+      <aside class="aside">
+        <div class="card">
+          <h3>Worth borrowing from Forge Tales</h3>
+          <ul>
+            <li>Modules with plain names and a clear job</li>
+            <li>Relationship tags on character cards</li>
+            <li>A wiki grid of picture tiles</li>
+            <li>Named theme presets with fonts attached</li>
+            <li>Compile to EPUB, PDF and Word</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Already better in StoryMaker</h3>
+          <ul>
+            <li>The lamp ritual and room tones</li>
+            <li>Obsidian vault round-tripping</li>
+            <li>The Vision canvas with music</li>
+            <li>A local model that only suggests</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Where to start</h3>
+          <p>Items 3 to 7 are a small CSS and pagination pass and change the Storybook's feel the most. Items 1 and 2 add the cover and page-turn motion on top.</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<script>
+(() => {
+  /* ---------- routing ---------- */
+  const views = ["storybook", "studio", "ideas"];
+  function route() {
+    const h = location.hash.replace("#", "");
+    const v = views.includes(h) ? h : "storybook";
+    views.forEach(id => { document.getElementById("view-" + id).hidden = id !== v; });
+    document.querySelectorAll(".tabs a").forEach(a => a.setAttribute("aria-current", a.dataset.view === v ? "page" : "false"));
+    if (v === "storybook") requestAnimationFrame(() => { fit(); sizeCanvas(); });
+  }
+  addEventListener("hashchange", route);
+
+  document.getElementById("pinToggle").addEventListener("change", e => {
+    document.getElementById("window").classList.toggle("pins-off", !e.target.checked);
+  });
+
+  /* ---------- bookshelf ---------- */
+  const LEATHER = ["#7a2e2a", "#1f4d3a", "#1d3e66", "#6a4324", "#4c2d55", "#8d4b2a", "#24342e", "#6e2f3c"];
+  const WIDTHS = [46, 54, 42, 62, 50, 58, 44, 66];
+  const HEIGHTS = [176, 196, 168, 188, 180, 204, 172, 192];
+  let shelf = [
+    { title: "Lantern and Tide", spine: 7 },
+    { title: "The Glass Orchard", spine: 1 },
+    { title: "Nine Winters North", spine: 2 },
+    { title: "Moth and Crown", spine: 4 },
+    { title: "The Clockmaker's Debt", spine: 3 },
+  ];
+  let openBookTitle = "Lantern and Tide", naming = false;
+  const rowBooks = document.getElementById("rowBooks");
+  const esc = t => t.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  function spineFont(title, w, h) {
+    const aH = Math.max(48, h - 52), aW = Math.max(18, w - 12);
+    let size = 16;
+    while (size > 9) { const rows = Math.floor(aH / (size * 0.62)), cols = Math.max(1, Math.floor(aW / (size * 1.15))); if (rows * cols >= title.length) break; size -= 0.5; }
+    return size;
+  }
+  function renderShelf() {
+    const lamp = `<svg class="bookend" viewBox="0 0 46 74" aria-hidden="true"><path d="M23 4v6M15 10h16l-2 6H17z" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="16" width="20" height="34" rx="4" fill="rgba(230,189,106,.18)" stroke="currentColor" stroke-width="2"/><path d="M23 26c3 4 5 6 5 9a5 5 0 0 1-10 0c0-3 2-5 5-9z" fill="#fbe6a8"/><path d="M10 50h26l-3 8H13z" fill="currentColor"/><path d="M6 70h34" stroke="currentColor" stroke-width="3"/><path d="M17 58v12M29 58v12" stroke="currentColor" stroke-width="2"/></svg>`;
+    let html = lamp;
+    shelf.forEach((b, i) => {
+      const w = WIDTHS[b.spine % 8], h = HEIGHTS[b.spine % 8];
+      const on = b.title === openBookTitle;
+      html += `<div class="slot"><button class="spine${on ? " on" : ""}" data-i="${i}" style="--leather:${LEATHER[b.spine % 8]};width:${w}px;height:${h}px" aria-label="Open ${esc(b.title)}"${on ? ' aria-current="true"' : ""}><span class="glint"></span><strong style="font-size:${spineFont(b.title, w, h)}px">${esc(b.title)}</strong></button><button class="spine-x" data-x="${i}" aria-label="Take ${esc(b.title)} off the shelf">×</button></div>`;
+    });
+    html += naming
+      ? `<form class="new-form" id="newForm"><input id="newTitle" placeholder="Title" aria-label="Title of the new story" maxlength="40"><button class="btn primary" type="submit">Set it on the shelf</button></form>`
+      : `<button class="spine-new" id="newBook"><span>New story</span><b>+</b></button>`;
+    rowBooks.innerHTML = html;
+    if (naming) { const f = document.getElementById("newForm"); document.getElementById("newTitle").focus(); f.addEventListener("submit", e => { e.preventDefault(); const t = document.getElementById("newTitle").value.trim(); naming = false; if (t) { shelf.push({ title: t, spine: shelf.length * 3 % 8 }); setOpen(t); } else renderShelf(); }); }
+  }
+  function setOpen(title) {
+    openBookTitle = title;
+    const b = shelf.find(x => x.title === title);
+    document.getElementById("switchTitle").textContent = title;
+    document.getElementById("openTitle").textContent = title;
+    if (b) document.getElementById("miniSpine").style.background = `linear-gradient(90deg, rgba(0,0,0,.4), rgba(255,255,255,.15), rgba(0,0,0,.4)), ${LEATHER[b.spine % 8]}`;
+    renderShelf();
+  }
+  rowBooks.addEventListener("click", e => {
+    const x = e.target.closest("[data-x]");
+    if (x) { const b = shelf[+x.dataset.x]; shelf.splice(+x.dataset.x, 1); if (b.title === openBookTitle && shelf[0]) setOpen(shelf[0].title); else renderShelf(); return; }
+    const sp = e.target.closest(".spine"); if (sp) { setOpen(shelf[+sp.dataset.i].title); return; }
+    if (e.target.closest("#newBook")) { naming = true; renderShelf(); }
+  });
+  setOpen("Lantern and Tide");
+
+  /* ---------- book content (from the sample story, Lantern and Tide) ---------- */
+  const lh = (w, h, c) => `<svg width="${w}" height="${h}" style="color:${c}"><use href="#lighthouse"/></svg>`;
+  const rule = `<svg width="120" height="10"><use href="#rule"/></svg>`;
+  const P = t => `<p class="ink">${t}</p>`;
+  const DC = (t) => `<p class="ink"><span class="initial"><b>${t[0]}</b></span>${t.slice(1)}</p>`;
+  const pages = {
+    endpaper: { html: "", off: true },
+    title: { cls: "center-page", html: `<div class="frame-orn"></div>
+      <div class="ink">${lh(46, 62, "#a8792f")}</div>
+      <h2 class="ink">Lantern<br>and Tide</h2>
+      <div class="ink">${rule}</div>
+      <p class="sub ink">A coastal story about maps, promises, and a light that refuses to go out.</p>
+      <div class="num ink" style="margin-top:18px">Tideglass Year 418</div>`, label: "Title page" },
+    op1: { cls: "center-page", folio: "ii", html: `<div class="frame-orn"></div>
+      <div class="num ink">Chapter the First</div><div class="ink">${rule}</div>
+      <h2 class="ink">Low Lamps</h2>
+      <div class="ink" style="margin-top:10px">${lh(40, 54, "#a8792f")}</div>`, label: "Chapter 1 · Low lamps", chap: true },
+    t1: { folio: "iii", html: `<div class="kicker ink">Window lamp</div>
+      ${DC("The rain reached the Quiet Pier before the second bell, and Mira turned the lamp so its light fell on the steps and not on her table.")}
+      ${P("Pio shook water off his sleeves and held out a folded note. “Upper Wharf,” he said. “They want a chart that says the shoal is further out than it is.”")}`, label: "Chapter 1 · Low lamps" },
+    t2: { folio: "iv", html: `${P("Mira did not take the note at first. She warmed her ink on the kettle and listened to the gulls argue on the roof. Somewhere under the floorboards, the biscuit tin was still where she had left it. She hoped.")}
+      <div class="tailpiece ink"><div class="fleuron">❦</div></div>`, label: "Chapter 1 · Low lamps" },
+    op2: { cls: "center-page", folio: "v", html: `<div class="frame-orn"></div>
+      <div class="num ink">Chapter the Second</div><div class="ink">${rule}</div>
+      <h2 class="ink">The Wrong Chart</h2>
+      <div class="ink" style="margin-top:10px;font-size:30px;color:#a8792f">✧</div>`, label: "Chapter 2 · The wrong chart", chap: true },
+    t3: { folio: "vi", html: `<div class="kicker ink">A button on the floor</div>
+      ${DC("The tin was empty except for a brass button that did not match any coat Mira owned.")}
+      ${P("She walked to Heddle Light in the wet dark. Bram was already slicing bread. He looked at the button, then at her face, and pushed the larger piece across the table.")}`, label: "Chapter 2 · The wrong chart" },
+    t4: { folio: "vii", cls: "endcard", html: `${P("“Eat first,” he said. “Maps can be stolen. Breakfast is harder to ruin.”")}
+      <div class="tailpiece ink" style="text-align:center">
+        <div class="fleuron">❧</div>
+        <div style="font-style:italic;color:#8a6c4c">The story so far ends here.</div>
+        <a href="#studio">✎ Keep writing in the Hearth</a>
+      </div>`, label: "Chapter 2 · The wrong chart" },
+  };
+  const spreads = [
+    { L: pages.endpaper, R: pages.title },
+    { L: pages.op1, R: pages.t1 },
+    { L: pages.t2, R: pages.op2 },
+    { L: pages.t3, R: pages.t4 },
+  ];
+
+  const $ = id => document.getElementById(id);
+  const book = $("book"), pageL = $("pageL"), pageR = $("pageR"), stage = $("stage");
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const COVER_MS = reduce ? 30 : 1750, TURN_MS = reduce ? 30 : 980;
+  let idx = 0, isOpen = false, busy = false;
+
+  const markup = p => `<div class="pg-inner ${p.cls || ""}">${p.html}</div><div class="folio">${p.folio || ""}</div>`;
+  function setPage(el, p) { el.innerHTML = markup(p); el.classList.toggle("is-off", !!p.off); }
+  function ink(el, base = 0) {
+    el.querySelectorAll(".ink").forEach((n, i) => n.style.setProperty("--d", (base + i * 170) + "ms"));
+    el.classList.remove("inked"); void el.offsetWidth; el.classList.add("inked");
+  }
+  setPage(pageL, spreads[0].L); setPage(pageR, spreads[0].R);
+
+  /* beads */
+  const beads = $("beads");
+  spreads.forEach((s, i) => {
+    const b = document.createElement("button");
+    const chap = s.L.chap || s.R.chap;
+    b.className = "bead" + (chap ? " chap" : "");
+    b.innerHTML = `<span></span><em class="tip">${s.R.label || s.L.label}</em>`;
+    b.setAttribute("aria-label", "Go to " + (s.R.label || s.L.label));
+    b.addEventListener("click", () => jump(i));
+    beads.appendChild(b);
+  });
+  function sync() {
+    [...beads.children].forEach((b, i) => b.setAttribute("aria-current", i === idx ? "true" : "false"));
+    $("prevBtn").disabled = idx === 0; $("nextBtn").disabled = idx === spreads.length - 1;
+    $("readingLabel").textContent = isOpen ? (spreads[idx].R.label || spreads[idx].L.label || "") : "";
+  }
+
+  function openBook() {
+    if (isOpen || busy) return;
+    busy = true; chime(); burst();
+    stage.classList.add("is-open");
+    book.classList.add("open");
+    setTimeout(fit, 0);
+    ink(pageR, 900);
+    setTimeout(() => { book.classList.add("settled"); isOpen = true; busy = false; sync(); kickIdle(); }, COVER_MS);
+  }
+  function closeBook() {
+    if (!isOpen || busy) return;
+    const go = () => {
+      busy = true; book.classList.remove("settled"); book.classList.remove("open");
+      stage.classList.remove("is-open", "idle");
+      setTimeout(() => { isOpen = false; busy = false; sync(); fit(); }, COVER_MS);
+    };
+    if (idx !== 0) { jump(0); setTimeout(go, 60); } else go();
+  }
+  function makeLeaf(dir, front, back) {
+    const leaf = document.createElement("div");
+    leaf.className = "leaf " + dir;
+    const fs = dir === "next" ? "r" : "l", bs = dir === "next" ? "l" : "r";
+    leaf.innerHTML = `<div class="pg ${fs} front">${markup(front)}</div><div class="pg ${bs} back">${markup(back)}</div>`;
+    book.appendChild(leaf);
+    return leaf;
+  }
+  function turn(dir) {
+    if (!isOpen || busy) return;
+    const to = idx + (dir === "next" ? 1 : -1);
+    if (to < 0 || to >= spreads.length) return;
+    busy = true; rustle();
+    const cur = spreads[idx], nx = spreads[to];
+    let leaf;
+    if (dir === "next") { leaf = makeLeaf("next", cur.R, nx.L); setPage(pageR, nx.R); ink(pageR, 350); }
+    else { leaf = makeLeaf("prev", cur.L, nx.R); setPage(pageL, nx.L); if (!nx.L.off) ink(pageL, 350); }
+    requestAnimationFrame(() => requestAnimationFrame(() => leaf.classList.add("turn")));
+    setTimeout(() => {
+      if (dir === "next") setPage(pageL, nx.L); else setPage(pageR, nx.R);
+      leaf.remove(); idx = to; busy = false; sync();
+    }, TURN_MS);
+  }
+  function jump(i) {
+    if (!isOpen || busy || i === idx) return;
+    idx = i; setPage(pageL, spreads[i].L); setPage(pageR, spreads[i].R);
+    if (!spreads[i].L.off) ink(pageL); ink(pageR, 250); sync();
+  }
+
+  $("openBtn").addEventListener("click", openBook);
+  $("cover").addEventListener("click", openBook);
+  $("closeBtn").addEventListener("click", closeBook);
+  $("prevBtn").addEventListener("click", () => turn("prev"));
+  $("nextBtn").addEventListener("click", () => turn("next"));
+  $("hitL").addEventListener("click", () => turn("prev"));
+  $("hitR").addEventListener("click", () => turn("next"));
+  addEventListener("keydown", e => {
+    if ($("view-storybook").hidden) return;
+    if (e.target.closest && e.target.closest("input, .seg, .pop")) return;
+    if (e.key === "Enter" && !isOpen && document.activeElement === document.body) { e.preventDefault(); openBook(); }
+    if (e.key === "ArrowRight" || e.key === "PageDown") { e.preventDefault(); turn("next"); }
+    if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); turn("prev"); }
+  });
+  let sx = null;
+  book.addEventListener("pointerdown", e => { sx = e.clientX; });
+  book.addEventListener("pointerup", e => { if (sx == null) return; const dx = e.clientX - sx; sx = null; if (Math.abs(dx) > 50) turn(dx < 0 ? "next" : "prev"); });
+
+  /* Aa popover */
+  const aaBtn = $("aaBtn"), aaPop = $("aaPop");
+  aaBtn.addEventListener("click", () => { aaPop.hidden = !aaPop.hidden; aaBtn.setAttribute("aria-expanded", String(!aaPop.hidden)); });
+  const faces = { fell: '"IM Fell English", Georgia, serif', fraunces: '"Fraunces", Georgia, serif', clear: '"Atkinson Hyperlegible", system-ui, sans-serif' };
+  $("faceSeg").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    document.documentElement.style.setProperty("--book-font", faces[b.dataset.face]);
+    [...$("faceSeg").children].forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+  });
+  $("sizeRange").addEventListener("input", e => document.documentElement.style.setProperty("--book-size", e.target.value + "px"));
+
+  /* idle fade of the controls */
+  let idleT;
+  function kickIdle() {
+    stage.classList.remove("idle"); clearTimeout(idleT);
+    if (isOpen && aaPop.hidden) idleT = setTimeout(() => stage.classList.add("idle"), 2600);
+  }
+  stage.addEventListener("pointermove", kickIdle);
+  stage.addEventListener("keydown", kickIdle);
+  stage.addEventListener("focusin", kickIdle);
+
+  /* fit the 760px book into the stage */
+  function fit() {
+    const w = stage.clientWidth - 24;
+    const s = Math.min(1, w / 760);
+    $("bookWrap").style.transform = `scale(${s})`;
+    $("sizer").style.width = 760 * s + "px";
+    $("sizer").style.height = 580 * s + "px";
+  }
+  addEventListener("resize", () => { fit(); sizeCanvas(); });
+
+  /* sound: synthesized, only after a click */
+  let ac = null, soundOn = false;
+  function toggleSound() {
+    soundOn = !soundOn;
+    $("soundBtn").setAttribute("aria-pressed", String(soundOn));
+    $("soundBtn").textContent = soundOn ? "♪ Sound on" : "♪ Sound off";
+    $("soundPre").textContent = soundOn ? "♪ Sound is on" : "♪ Turn sound on";
+    if (soundOn) { try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); ac.resume(); } catch (_) { ac = null; } }
+  }
+  $("soundBtn").addEventListener("click", toggleSound);
+  $("soundPre").addEventListener("click", toggleSound);
+  function chime() {
+    if (!soundOn || !ac) return;
+    const notes = [783.99, 987.77, 1174.66, 1479.98, 1567.98, 1975.53];
+    notes.forEach((f, i) => {
+      const t = ac.currentTime + i * 0.13;
+      [1, 2.01].forEach((m, k) => {
+        const o = ac.createOscillator(), g = ac.createGain();
+        o.type = k ? "triangle" : "sine"; o.frequency.value = f * m;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(k ? 0.015 : 0.06, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 2.2);
+        o.connect(g).connect(ac.destination); o.start(t); o.stop(t + 2.3);
+      });
+    });
+  }
+  function rustle() {
+    if (!soundOn || !ac) return;
+    const len = ac.sampleRate * 0.45, buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2) * (0.5 + 0.5 * Math.sin(i / 900));
+    const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+    src.buffer = buf; f.type = "bandpass"; f.frequency.value = 2400; f.Q.value = 0.7; g.gain.value = 0.12;
+    src.connect(f).connect(g).connect(ac.destination); src.start();
+  }
+
+  /* gold motes */
+  const cv = $("motes"), ctx = cv.getContext("2d");
+  let W = 0, H = 0, dpr = 1; const motes = [];
+  function sizeCanvas() { const oW = W || 1, oH = H || 1; dpr = Math.min(2, devicePixelRatio || 1); W = stage.clientWidth; H = stage.clientHeight; if (!W || !H) return; if (oW < 50 || oH < 50) motes.forEach(m => { m.x = Math.random() * W; m.y = Math.random() * H; }); else motes.forEach(m => { m.x *= W / oW; m.y *= H / oH; }); cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+  function mote(x, y, burst) {
+    const a = Math.random() * Math.PI * 2, sp = burst ? 1 + Math.random() * 3.2 : 0;
+    return { x, y, r: burst ? 0.8 + Math.random() * 2 : 0.5 + Math.random() * 1.6,
+      vx: burst ? Math.cos(a) * sp : (Math.random() - 0.5) * 0.15, vy: burst ? Math.sin(a) * sp - 1 : -0.08 - Math.random() * 0.25,
+      p: Math.random() * 6.28, s: 0.6 + Math.random() * 1.8, life: burst ? 1 : Infinity, burst };
+  }
+  function seed() { for (let i = 0; i < 80; i++) motes.push(mote(Math.random() * W, Math.random() * H, false)); }
+  function burst() {
+    if (reduce) return;
+    const r = book.getBoundingClientRect(), s = stage.getBoundingClientRect();
+    const cx = r.left - s.left + r.width * 0.75, cy = r.top - s.top + r.height * 0.5;
+    for (let i = 0; i < 160; i++) motes.push(mote(cx + (Math.random() - 0.5) * 200, cy + (Math.random() - 0.5) * 300, true));
+  }
+  function draw(t) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.globalCompositeOperation = "lighter";
+    for (let i = motes.length - 1; i >= 0; i--) {
+      const m = motes[i];
+      m.x += m.vx; m.y += m.vy;
+      if (m.burst) { m.vx *= 0.975; m.vy = m.vy * 0.975 - 0.01; m.life -= 0.006; if (m.life <= 0) { motes.splice(i, 1); continue; } }
+      else if (m.y < -10) { m.y = H + 10; m.x = Math.random() * W; }
+      const tw = 0.45 + 0.55 * Math.sin(t / 1000 * m.s + m.p);
+      const a = (m.burst ? m.life : 0.7) * tw;
+      ctx.fillStyle = `rgba(230,189,106,${a * 0.18})`; ctx.beginPath(); ctx.arc(m.x, m.y, m.r * 4, 0, 6.283); ctx.fill();
+      ctx.fillStyle = `rgba(255,236,180,${a})`; ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, 6.283); ctx.fill();
+    }
+    ctx.globalCompositeOperation = "source-over";
+    if (!reduce) requestAnimationFrame(draw);
+  }
+
+  route(); fit(); sizeCanvas(); seed(); requestAnimationFrame(draw); sync();
+})();
+</script>

@@ -100,7 +100,7 @@ export interface CustomPlugin {
 
 export type ManuscriptFont = "serif" | "sans" | "clear";
 
-export type ReaderSkin = "glow" | "illuminated";
+export type ReaderSkin = "gilded" | "illuminated" | "glow";
 
 export interface Comfort {
   theme: ThemeId;
