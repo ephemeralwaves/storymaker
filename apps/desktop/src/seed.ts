@@ -209,7 +209,7 @@ export function createSeed(): Project {
         order: 0,
         characterIds: ["mira", "pio"],
         loreIds: ["pier", "tin"],
-        body: "The rain reached the Quiet Pier before the second bell, and Mira turned the lamp so its light fell on the steps and not on her table.\n\nPio shook water off his sleeves and held out a folded note. \"Upper Wharf,\" he said. \"They want a chart that says the shoal is further out than it is.\"\n\nMira did not take the note at first. She warmed her ink on the kettle and listened to the gulls argue on the roof. Somewhere under the floorboards, the biscuit tin was still where she had left it. She hoped.",
+        body: "## Before the second bell\n\nThe rain reached the Quiet Pier before the second bell, and Mira turned the lamp so its light fell on the *steps* and not on her table.\n\nPio shook water off his sleeves and held out a folded note. \"Upper Wharf,\" he said. \"They want a chart that says the shoal is further out than it is.\"\n\nMira did not take the note at first. She warmed her ink on the kettle and listened to the gulls argue on the roof. Somewhere under the floorboards, the biscuit tin was still where she had left it. She hoped.\n\n### What the note asked for\n\n- A coastline redrawn to flatter a buyer\n- A shoal moved *out* by a polite half-mile\n- Mira's signature under a lie\n\n> *Leave the lamp.*\n>\n> — her aunt's note, still folded in the tin",
       },
       {
         id: "s2",
@@ -220,7 +220,7 @@ export function createSeed(): Project {
         order: 0,
         characterIds: ["mira", "bram"],
         loreIds: ["ledger"],
-        body: "The tin was empty except for a brass button that did not match any coat Mira owned.\n\nShe walked to Heddle Light in the wet dark. Bram was already slicing bread. He looked at the button, then at her face, and pushed the larger piece across the table.\n\n\"Eat first,\" he said. \"Maps can be stolen. Breakfast is harder to ruin.\"",
+        body: "## The empty tin\n\nThe tin was empty except for a **brass button** that did not match any coat Mira owned.\n\nShe walked to Heddle Light in the wet dark. Bram was already slicing bread. He looked at the button, then at her face, and pushed the larger piece across the table.\n\n---\n\n\"Eat first,\" he said. \"Maps can be stolen. Breakfast is harder to ruin.\"\n\n> Maps can be stolen. Breakfast is harder to ruin.",
       },
     ],
     vision: {

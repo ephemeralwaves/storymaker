@@ -2,7 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { StorybookMotes, type MotesHandle } from "../components/StorybookMotes";
 import { leatherFor } from "../lib/leather";
 import { buildStoryBlocks, paginateBlocks, type StoryBlock } from "../lib/storybookPages";
-import { playChime, playRustle, wakeStorybookSound } from "../lib/storybookSound";
 import { useStory } from "../lib/store";
 import type { ReaderSkin } from "../types";
 
@@ -63,11 +62,26 @@ function Para({ block, skin, style }: { block: Extract<StoryBlock, { kind: "para
       <p className="sb-para sb-ink" style={style}>
         <span className="sb-initial" aria-hidden="true"><b>{block.text[0]}</b></span>
         <span className="sb-sr">{block.text[0]}</span>
-        {block.text.slice(1)}
+        {block.html ? <span dangerouslySetInnerHTML={{ __html: inlineAfterDropCap(block.html, block.text[0]) }} /> : block.text.slice(1)}
       </p>
     );
   }
+  if (block.html) {
+    return (
+      <p
+        className={block.dropCap ? "sb-para sb-ink drop-cap" : "sb-para sb-ink"}
+        style={style}
+        dangerouslySetInnerHTML={{ __html: block.html }}
+      />
+    );
+  }
   return <p className={block.dropCap ? "sb-para sb-ink drop-cap" : "sb-para sb-ink"} style={style}>{block.text}</p>;
+}
+
+/** Drop the first visible character from inline HTML when a gilded initial already shows it. */
+function inlineAfterDropCap(html: string, first: string): string {
+  const escaped = first.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return html.replace(new RegExp(`^(?:\\s|<[^>]+>)*${escaped}`), (match) => match.slice(0, match.length - first.length));
 }
 
 function BlockView({ block, skin, index, onKeepWriting }: { block: StoryBlock; skin: ReaderSkin; index: number; onKeepWriting: () => void }) {
@@ -101,6 +115,30 @@ function BlockView({ block, skin, index, onKeepWriting }: { block: StoryBlock; s
       </div>
     );
   }
+  if (block.kind === "heading") {
+    const Tag = block.level === 1 ? "h2" : block.level === 2 ? "h3" : "h4";
+    return <Tag className={`sb-md-heading sb-md-h${block.level} sb-ink`} style={style}>{block.text}</Tag>;
+  }
+  if (block.kind === "quote") {
+    return <blockquote className="sb-md-quote sb-ink" style={style}>{block.text}</blockquote>;
+  }
+  if (block.kind === "list") {
+    const ListTag = block.ordered ? "ol" : "ul";
+    return (
+      <ListTag className="sb-md-list sb-ink" style={style}>
+        {block.items.map((item, itemIndex) => (
+          <li key={`${itemIndex}-${item.slice(0, 24)}`}>{item}</li>
+        ))}
+      </ListTag>
+    );
+  }
+  if (block.kind === "rule") {
+    return (
+      <div className="sb-scene sb-ink" style={style}>
+        <span className="sb-fleuron">❧</span>
+      </div>
+    );
+  }
   if (block.kind === "end") {
     return (
       <div className="sb-end sb-ink" style={style}>
@@ -117,20 +155,39 @@ function BlockView({ block, skin, index, onKeepWriting }: { block: StoryBlock; s
 function fillMeasureHost(host: HTMLElement, slice: StoryBlock[], skin: ReaderSkin) {
   host.replaceChildren();
   for (const block of slice) {
-    if (block.kind === "ornament") {
+    if (block.kind === "ornament" || block.kind === "rule") {
       const node = document.createElement("div");
       node.className = "sb-scene";
-      if (block.flourish) {
+      if (block.kind === "rule" || block.flourish) {
         const fleuron = document.createElement("span");
         fleuron.className = "sb-fleuron";
-        fleuron.textContent = "❦";
+        fleuron.textContent = block.kind === "rule" ? "❧" : "❦";
         node.appendChild(fleuron);
       }
-      if (block.text) {
+      if (block.kind === "ornament" && block.text) {
         const title = document.createElement("span");
         title.className = "sb-scene-title";
         title.textContent = block.text;
         node.appendChild(title);
+      }
+      host.appendChild(node);
+    } else if (block.kind === "heading") {
+      const node = document.createElement(block.level === 1 ? "h2" : block.level === 2 ? "h3" : "h4");
+      node.className = `sb-md-heading sb-md-h${block.level}`;
+      node.textContent = block.text;
+      host.appendChild(node);
+    } else if (block.kind === "quote") {
+      const node = document.createElement("blockquote");
+      node.className = "sb-md-quote";
+      node.textContent = block.text;
+      host.appendChild(node);
+    } else if (block.kind === "list") {
+      const node = document.createElement(block.ordered ? "ol" : "ul");
+      node.className = "sb-md-list";
+      for (const item of block.items) {
+        const li = document.createElement("li");
+        li.textContent = item;
+        node.appendChild(li);
       }
       host.appendChild(node);
     } else if (block.kind === "end") {
@@ -145,7 +202,15 @@ function fillMeasureHost(host: HTMLElement, slice: StoryBlock[], skin: ReaderSki
         initial.className = "sb-initial";
         initial.textContent = block.text[0];
         node.appendChild(initial);
-        node.appendChild(document.createTextNode(block.text.slice(1)));
+        if (block.html) {
+          const rest = document.createElement("span");
+          rest.innerHTML = inlineAfterDropCap(block.html, block.text[0]);
+          node.appendChild(rest);
+        } else {
+          node.appendChild(document.createTextNode(block.text.slice(1)));
+        }
+      } else if (block.kind === "para" && block.html) {
+        node.innerHTML = block.html;
       } else {
         node.textContent = block.text;
       }
@@ -200,7 +265,6 @@ export function StorybookView() {
   const [scale, setScale] = useState(1);
   const [idle, setIdle] = useState(false);
   const [aaOpen, setAaOpen] = useState(false);
-  const [sound, setSound] = useState(false);
 
   const stageRef = useRef<HTMLDivElement>(null);
   const bookRef = useRef<HTMLDivElement>(null);
@@ -271,14 +335,13 @@ export function StorybookView() {
 
   const openBook = useCallback(() => {
     if (phase !== "closed") return;
-    if (sound) playChime();
     const stage = stageRef.current?.getBoundingClientRect();
     const cover = bookRef.current?.getBoundingClientRect();
     if (stage && cover) motes.current?.burst(cover.left - stage.left + cover.width * 0.75, cover.top - stage.top + cover.height / 2);
     setSpread(0);
     setInked([1]);
     setPhase(calm ? "open" : "opening");
-  }, [phase, sound, calm]);
+  }, [phase, calm]);
 
   const closeBook = useCallback(() => {
     if (phase !== "open" || turn) return;
@@ -292,7 +355,6 @@ export function StorybookView() {
       if (phase !== "open" || turn) return;
       const to = spread + (dir === "next" ? 1 : -1);
       if (to < 0 || to >= spreadCount) return;
-      if (sound) playRustle();
       setInked(dir === "next" ? [to * 2 + 1] : [to * 2]);
       if (calm) {
         setSpread(to);
@@ -301,7 +363,7 @@ export function StorybookView() {
         setTurn(turnRef.current);
       }
     },
-    [phase, turn, spread, spreadCount, sound, calm],
+    [phase, turn, spread, spreadCount, calm],
   );
 
   const jump = (to: number) => {
@@ -514,10 +576,7 @@ export function StorybookView() {
             <button type="button" className="sb-open-btn" onClick={openBook} disabled={phase !== "closed"}>
               Open the book
             </button>
-            <p className="sb-hint">
-              Press Enter, or click the cover.
-              <SoundToggle on={sound} onToggle={() => setSound((s) => { if (!s) wakeStorybookSound(); return !s; })} compact />
-            </p>
+            <p className="sb-hint">Press Enter, or click the cover.</p>
           </>
         ) : (
           <>
@@ -588,7 +647,6 @@ export function StorybookView() {
                   </div>
                 ) : null}
               </div>
-              <SoundToggle on={sound} onToggle={() => setSound((s) => { if (!s) wakeStorybookSound(); return !s; })} />
               <button type="button" className="sb-pill" onClick={closeBook} disabled={!isOpen || Boolean(turn)}>
                 Close book
               </button>
@@ -618,10 +676,3 @@ function RoundButton({ label, disabled, onClick, children }: { label: string; di
   );
 }
 
-function SoundToggle({ on, onToggle, compact }: { on: boolean; onToggle: () => void; compact?: boolean }) {
-  return (
-    <button type="button" className={compact ? "sb-pill sb-pill-sm" : "sb-pill"} aria-pressed={on} onClick={onToggle}>
-      {on ? "♪ Sound on" : "♪ Sound off"}
-    </button>
-  );
-}

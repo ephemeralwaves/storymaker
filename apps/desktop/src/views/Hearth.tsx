@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { DeskCompanion } from "../components/DeskCompanion";
+import { ManuscriptEditor } from "../components/ManuscriptEditor";
 import { Field } from "../components/ui";
 import { countWords } from "../lib/util";
 import { useStory } from "../lib/store";
@@ -113,9 +114,16 @@ export function HearthView() {
           <div className="editor-head">
             <input className="title-input" value={scene.title} onChange={(e) => update({ title: e.target.value })} />
             <div className="row">
-              <select value={scene.status} onChange={(e) => update({ status: e.target.value as Scene["status"] })}>
+              <select
+                className="hearth-status"
+                aria-label="Scene status"
+                value={scene.status}
+                onChange={(e) => update({ status: e.target.value as Scene["status"] })}
+              >
                 {SCENE_STATUSES.map((status) => (
-                  <option key={status}>{status}</option>
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
                 ))}
               </select>
               <label className="hearth-font">
@@ -147,11 +155,12 @@ export function HearthView() {
               </button>
             </div>
           </div>
-          <textarea
-            className="manuscript"
-            style={{ fontFamily, fontSize: `${manuscriptScale}rem` }}
+          <ManuscriptEditor
+            key={scene.id}
             value={scene.body}
-            onChange={(e) => update({ body: e.target.value })}
+            onChange={(body) => update({ body })}
+            fontFamily={fontFamily}
+            fontSize={`${manuscriptScale}rem`}
             placeholder="Write the piece that is alive. Structure can come later."
           />
           <footer className="page-meta">
