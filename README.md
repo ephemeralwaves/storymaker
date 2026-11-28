@@ -1,10 +1,14 @@
-# StoryMaker
+# Lumen Story Maker
 
-StoryMaker is a local-first desktop app for people who build worlds and write inside them. It keeps characters, lore, timelines, a custom calendar, and a long-form writing desk on your machine. A local model (Ollama) can offer suggestions from the Hearth. Those suggestions never change a scene until you insert them.
+Lumen Story Maker is a local-first desktop app for people who build worlds and write inside them. It keeps characters, lore, timelines, a custom calendar, and a long-form writing desk on your machine. A local model (Ollama) can offer suggestions from the Hearth. Those suggestions never change a scene until you insert them.
 
 Privacy is by design. There is no account, no cloud sync, and no telemetry. Your stories stay on this computer: in the browser profile that is running the app, and optionally in an Obsidian vault folder you choose. This repository is only the app code and docs; it does not hold your writing.
 
-The feeling is a warm writing room: paper, lamp light, and a small lantern-fox named Lumen. The visual identity, sample story, and audio are original. Fonts are the SIL Open Font License families Fraunces, Nunito, and Atkinson Hyperlegible.
+The feeling is a warm writing room: paper, lamp light, and a small lantern named Lumen. The visual identity, sample story, and audio are original. Fonts are the SIL Open Font License families Fraunces, Nunito, and Atkinson Hyperlegible.
+
+### Try it [here](https://thinkcolorful.org/lumenstorymaker/)!
+
+<img width="1491" height="905" alt="image" src="https://github.com/user-attachments/assets/a089f2fe-a321-44df-8beb-f1bcb648d91f" />
 
 ## Run it
 
